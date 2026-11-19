@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>أنشطة المدينة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ===== Design tokens: strict blue monochrome ===== */
+:root{
+  --navy:#03045e; --royal:#023e8a; --ocean:#0077b6; --cerulean:#0096c7; --cyan:#00b4d8;
+  --sky:#48cae4; --aqua:#90e0ef; --pale:#ade8f4; --ice:#caf0f8;
+  --gold:#f5b301; /* reserved ONLY for winner “Star” badges */
+  --white:#ffffff; --offwhite:#f4fcfe;
+
+  --bg:var(--offwhite); --surface:var(--white); --surface-2:var(--ice);
+  --text:var(--navy); --text-soft:var(--royal); --line:var(--aqua);
+  --chip-bg:var(--white); --chip-text:var(--royal); --chip-line:var(--aqua);
+  --chip-active-bg:var(--navy); --chip-active-text:var(--white);
+  --hero-from:var(--navy); --hero-to:var(--ocean);
+  --clock-text:var(--ice); --title-text:var(--white);
+  --radius:18px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#020447; --surface:var(--royal); --surface-2:var(--navy);
+    --text:var(--ice); --text-soft:var(--pale); --line:var(--ocean);
+    --chip-bg:var(--navy); --chip-text:var(--pale); --chip-line:var(--ocean);
+    --chip-active-bg:var(--cyan); --chip-active-text:var(--navy);
+    --hero-from:var(--navy); --hero-to:var(--royal);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#020447; --surface:var(--royal); --surface-2:var(--navy);
+  --text:var(--ice); --text-soft:var(--pale); --line:var(--ocean);
+  --chip-bg:var(--navy); --chip-text:var(--pale); --chip-line:var(--ocean);
+  --chip-active-bg:var(--cyan); --chip-active-text:var(--navy);
+  --hero-from:var(--navy); --hero-to:var(--royal);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark}}
+
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'Cairo','Tajawal',system-ui,'Segoe UI',Tahoma,sans-serif;
+  line-height:1.7;-webkit-font-smoothing:antialiased;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--hero-from);z-index:10}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+
+/* ===== Header ===== */
+.app-header{background:linear-gradient(160deg,var(--hero-from),var(--hero-to));color:var(--title-text);padding:14px 16px 28px}
+.topbar{max-width:1100px;margin:0 auto 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.15rem}
+.brand-mark{width:38px;height:38px;border-radius:12px;background:var(--cyan);color:var(--navy);display:grid;place-items:center;font-weight:900}
+.theme-btn{background:transparent;border:1.5px solid var(--sky);color:var(--ice);border-radius:999px;padding:4px 14px;font-weight:600;font-size:.9rem}
+.theme-btn:hover{background:var(--royal)}
+
+/* Day selector */
+.days-wrap{max-width:1100px;margin:0 auto;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:thin}
+.days{display:flex;gap:10px;min-width:max-content;margin:0 auto;justify-content:center}
+.day-chip{
+  display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:start;
+  background:var(--chip-bg);color:var(--chip-text);border:1.5px solid var(--chip-line);
+  border-radius:var(--radius);padding:8px 16px;min-width:150px;transition:background .2s,color .2s,transform .15s;
+}
+.day-chip small{font-size:.78rem;font-weight:600;opacity:.8}
+.day-chip strong{font-size:1rem;font-weight:700}
+.day-chip:hover{transform:translateY(-2px)}
+.day-chip[aria-selected="true"]{background:var(--chip-active-bg);color:var(--chip-active-text);border-color:var(--chip-active-bg);box-shadow:0 6px 18px rgba(3,4,94,.35)}
+
+/* Hero: active title + clock */
+.hero{max-width:1100px;margin:18px auto 0;text-align:center}
+.active-title{margin:0;font-size:clamp(1.2rem,3.6vw,1.7rem);font-weight:700;color:var(--title-text);letter-spacing:0}
+.active-sub{margin:2px 0 0;color:var(--pale);font-size:.95rem;font-weight:400}
+.clock{
+  direction:ltr;unicode-bidi:isolate;margin:8px 0 0;
+  font-size:clamp(3rem,13vw,5.6rem);font-weight:900;line-height:1.1;
+  color:var(--clock-text);font-variant-numeric:tabular-nums;letter-spacing:.02em;
+}
+.clock-label{margin:0;color:var(--aqua);font-size:.85rem;font-weight:600}
+
+/* ===== Main view ===== */
+main{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
+.panel{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:28px 22px;text-align:center}
+.panel h2{margin:0 0 6px;font-size:1.3rem;color:var(--text)}
+.panel p{margin:0;color:var(--text-soft)}
+/* ===== Statistics billboard ===== */
+.bb{background:linear-gradient(150deg,var(--navy),var(--royal));color:var(--ice);border:1.5px solid var(--ocean);border-radius:24px;padding:18px;margin-bottom:24px}
+.bb-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.bb-label{margin:0;font-weight:700;color:var(--aqua);font-size:1rem}
+.bb-nav{display:flex;gap:8px;align-items:center}
+.bb-arrow{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--sky);background:var(--navy);color:var(--ice);font-size:1.1rem;line-height:1}
+.bb-arrow:hover{background:var(--ocean)}
+.bb-progress{height:5px;background:var(--ocean);border-radius:99px;overflow:hidden;margin:12px 0 14px}
+.bb-progress i{display:block;height:100%;width:0;background:var(--sky)}
+.bb-dots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.bb-dot{width:11px;height:11px;padding:0;border-radius:50%;border:1.5px solid var(--sky);background:transparent}
+.bb-dot[aria-current="true"]{background:var(--cyan);border-color:var(--cyan)}
+.bb-card{border:2px solid var(--ocean);border-radius:20px;padding:16px;background:var(--navy)}
+.bb-card.is-best{border-color:var(--gold)}
+.bb-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.bb-gname{margin:0;font-size:clamp(1.6rem,5.5vw,2.5rem);font-weight:900;color:var(--white);line-height:1.3}
+.bb-total{text-align:center;background:var(--royal);border-radius:16px;padding:6px 20px}
+.bb-total b{display:block;font-size:2.2rem;font-weight:900;color:var(--white);line-height:1.2;font-variant-numeric:tabular-nums}
+.bb-total span{font-size:.8rem;color:var(--pale);font-weight:600}
+.badge-star{display:inline-flex;align-items:center;gap:4px;background:var(--gold);color:var(--navy);font-weight:900;font-size:.8rem;padding:1px 10px;border-radius:999px;white-space:nowrap}
+.bb-leader{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0;padding:10px 14px;border-radius:14px;background:var(--royal);border:1.5px solid var(--ocean)}
+.bb-leader.is-best{border-color:var(--gold)}
+.bb-role{font-size:.8rem;color:var(--aqua);font-weight:600;display:block}
+.bb-pname{font-weight:700;color:var(--white);font-size:1.1rem}
+.pts{font-weight:900;color:var(--sky);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pts small{font-weight:600;font-size:.75rem;color:var(--pale);margin-inline-start:3px}
+.bb-students{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;list-style:none;margin:0;padding:0}
+.stu{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-radius:12px;background:var(--royal);border:1.5px solid transparent}
+.stu.is-best{border-color:var(--gold)}
+.stu .bb-pname{font-size:1rem}
+.bb-empty{padding:18px;text-align:center;color:var(--pale);border:1.5px dashed var(--ocean);border-radius:12px}
+.bb-spot{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin-top:14px}
+.spot{background:var(--royal);border-radius:12px;padding:8px 12px;font-size:.92rem;color:var(--ice)}
+.spot b{color:var(--white)}
+.bb-tools{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.bb-tools button{background:transparent;border:1.5px solid var(--ocean);color:var(--pale);border-radius:999px;padding:2px 14px;font-size:.8rem}
+.bb-tools button:hover{background:var(--ocean);color:var(--white)}
+/* ===== Group grid, detail view, transitions ===== */
+@keyframes viewIn{from{opacity:0;transform:translate(var(--dx,0px),10px)}to{opacity:1;transform:none}}
+.view-enter{animation:viewIn .28s ease both}
+.btn{display:inline-block;background:var(--chip-active-bg);color:var(--chip-active-text);border:1.5px solid var(--chip-active-bg);border-radius:12px;padding:6px 16px;font-weight:700;text-decoration:none;font-size:.95rem}
+.btn:hover{filter:brightness(1.12)}
+.btn-ghost{background:var(--chip-bg);color:var(--chip-text);border-color:var(--chip-line)}
+.bb-link{color:inherit;text-decoration:none}.bb-link:hover{text-decoration:underline}
+.sec-title{margin:0 0 12px;font-size:1.3rem;color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.g-card{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:6px}
+.g-card.is-best{border-color:var(--gold)}
+.g-card h3{margin:0;font-size:1.15rem;color:var(--text)}
+.g-meta{margin:0;color:var(--text-soft);font-size:.92rem}
+.g-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:8px}
+.g-card .pts,.d-fld .pts{color:var(--ocean)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .g-card .pts{color:var(--sky)}}
+:root[data-theme="dark"] .g-card .pts{color:var(--sky)}
+.d-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.d-switch{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.d-switch select,.d-in{font:inherit;background:var(--surface-2);color:var(--text);border:1.5px solid var(--line);border-radius:12px;padding:6px 12px;min-width:0}
+.d-team{background:linear-gradient(150deg,var(--navy),var(--royal));color:var(--ice);border:2px solid var(--ocean);border-radius:24px;padding:20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.d-team.is-best{border-color:var(--gold)}
+.d-lab{display:block;font-size:.85rem;color:var(--aqua);font-weight:600}
+.d-team h2{margin:0;font-size:clamp(1.8rem,6vw,3rem);font-weight:900;color:var(--white);line-height:1.3}
+.d-team .bb-total b{font-size:2.4rem}
+.d-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:760px){.d-cols{grid-template-columns:1fr}}
+.d-col{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:12px}
+.d-col h3{margin:0;font-size:1.05rem;color:var(--text)}
+.d-fld{display:flex;flex-direction:column;gap:4px;font-size:.88rem;color:var(--text-soft);font-weight:600}
+.d-row{display:flex;gap:8px;align-items:center}
+.d-row .d-in:first-child{flex:1}
+.d-pts{width:82px;text-align:center}
+.d-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.d-rm{background:transparent;border:1.5px solid var(--line);color:var(--text-soft);border-radius:10px;width:34px;height:34px}
+.d-rm:hover{background:var(--surface-2)}
+.d-eval{border-style:dashed;text-align:center;color:var(--text-soft);min-height:180px;justify-content:center}
+.d-day{margin:0 0 16px;text-align:center;font-size:clamp(1.1rem,3.4vw,1.4rem);font-weight:700;color:var(--text)}
+.d-head{margin:0;padding-bottom:8px;border-bottom:1.5px solid var(--line);font-size:1.05rem;color:var(--text)}
+.d-row .d-in:not(.d-pts){flex:1}
+.d-edit{margin-top:6px;padding:2px 12px;font-size:.85rem}
+.d-leader{border:1.5px dashed var(--line);border-radius:14px;padding:10px}
+.d-hint{font-weight:400;font-size:.8rem;color:var(--text-soft)}
+.d-grip{flex:none;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;color:var(--text-soft);padding:6px 5px;border-radius:8px;font-weight:900;letter-spacing:-2px;line-height:1}
+.d-grip:hover{background:var(--surface-2)}
+.d-grip:active{cursor:grabbing}
+.d-row.dragging{opacity:.35}
+.d-ghost{position:fixed;z-index:50;pointer-events:none;background:var(--cyan);color:var(--navy);font-weight:700;padding:8px 14px;border-radius:12px;box-shadow:0 10px 24px rgba(3,4,94,.35);transform:rotate(-2deg)}
+.drop-hot{box-shadow:0 0 0 3px var(--cyan);background:color-mix(in srgb,var(--aqua) 35%,transparent);border-radius:12px}
+.drop-before{box-shadow:0 -4px 0 var(--cyan)}
+.drop-after{box-shadow:0 4px 0 var(--cyan)}
+.d-tray{position:fixed;inset-inline:0;bottom:0;z-index:40;display:flex;gap:8px;align-items:center;overflow-x:auto;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--navy);border-top:2px solid var(--cyan);color:var(--ice);font-weight:700}
+.d-tray[hidden]{display:none}
+.d-chip{flex:none;font:inherit;font-weight:700;background:var(--royal);color:var(--ice);border:1.5px solid var(--ocean);border-radius:999px;padding:6px 14px}
+.d-chip.drop-hot{background:var(--cyan);color:var(--navy);box-shadow:0 0 0 3px var(--aqua)}
+.ev-main{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ev-main button{font:inherit;font-weight:700;padding:10px 8px;border-radius:14px;background:var(--chip-bg);color:var(--chip-text);border:1.5px solid var(--chip-line)}
+.ev-main button[aria-pressed="true"]{background:var(--chip-active-bg);color:var(--chip-active-text);border-color:var(--chip-active-bg)}
+.ev-sub{display:flex;gap:6px;flex-wrap:wrap}
+.ev-sub button{font:inherit;font-weight:600;font-size:.9rem;padding:5px 12px;border-radius:999px;background:transparent;color:var(--text-soft);border:1.5px solid var(--line)}
+.ev-sub button[aria-pressed="true"]{background:var(--ocean);color:var(--white);border-color:var(--ocean)}
+.ev-day{margin:0;font-size:.9rem;color:var(--text-soft);font-weight:600}
+.ev-score{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(150deg,var(--navy),var(--royal));color:var(--ice);border-radius:16px;padding:10px 16px}
+.ev-score b{font-size:2rem;font-weight:900;color:var(--white);direction:ltr;font-variant-numeric:tabular-nums}
+.ev-wrap{overflow-x:auto}
+.ev-table{width:100%;border-collapse:collapse;min-width:420px}
+.ev-table th,.ev-table td{padding:8px 10px;border-bottom:1.5px solid var(--line);text-align:start;color:var(--text)}
+.ev-table th{background:var(--surface-2);font-size:.9rem;white-space:nowrap}
+.ev-table td.c,.ev-table th.c{text-align:center}
+.ev-table input[type=checkbox]{width:22px;height:22px;accent-color:var(--ocean);cursor:pointer}
+.ev-table tfoot td{font-weight:900;background:var(--surface-2)}
+.ev-table .d-in{width:100%}
+.act-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.act-head h3{margin:0;font-size:1.2rem;color:var(--text)}
+.act-title{margin:0;font-weight:900;font-size:1.15rem;color:var(--ocean)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .act-title{color:var(--sky)}}
+:root[data-theme="dark"] .act-title{color:var(--sky)}
+.act-toggle{justify-content:center}
+.act-count{font-size:.85rem;color:var(--text-soft);font-weight:600}
+.mp-grid{display:flex;flex-wrap:wrap;gap:6px}
+.mp-btn{width:42px;height:42px;border-radius:12px;font:inherit;font-weight:900;background:var(--chip-bg);color:var(--chip-text);border:1.5px solid var(--chip-line)}
+.mp-btn[aria-pressed="true"]{background:var(--cyan);color:var(--navy);border-color:var(--cyan)}
+textarea.d-in{resize:vertical;min-height:64px}
+.m-err{margin:0;color:var(--text);font-weight:700;font-size:.9rem;min-height:1.2em}
+.m-pos{font-weight:900;color:var(--ocean);direction:ltr;display:inline-block}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .m-pos{color:var(--sky)}}
+:root[data-theme="dark"] .m-pos{color:var(--sky)}
+.foot{max-width:1100px;margin:0 auto;padding:18px 16px calc(40px + env(safe-area-inset-bottom,0px));border-top:1.5px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.foot p{margin:0;color:var(--text-soft);font-size:.9rem}
+.foot-btns{display:flex;gap:8px;flex-wrap:wrap}
+.foot textarea{direction:ltr;text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;min-height:140px}
+/* billboard: graduated palette + crossfade */
+.bb{background-color:var(--bb-bg,var(--navy));background-image:linear-gradient(160deg,rgb(255 255 255/0),rgb(3 4 94/.35));transition:background-color .7s ease-in-out}
+.bb-card{background:rgb(3 4 94/.72);border-color:var(--bb-ac,var(--ocean));transition:border-color .7s ease-in-out}
+.bb-label{color:var(--white)}
+.bb-progress{background:rgb(3 4 94/.55)}
+.bb-progress i{background:var(--bb-ac,var(--sky));transition:width .1s linear,background-color .7s ease-in-out}
+.bb-dot{transition:background-color .7s ease-in-out,border-color .7s ease-in-out}
+.bb-dot[aria-current="true"]{background:var(--bb-ac,var(--cyan));border-color:var(--bb-ac,var(--cyan))}
+.bb-stage{transition:opacity .32s ease-in-out,transform .32s ease-in-out}
+.bb-stage.bb-out{opacity:0;transform:translateX(var(--gx,0px))}
+@keyframes bbIn{from{opacity:0;transform:translateX(var(--gx,0px))}to{opacity:1;transform:none}}
+.bb-stage.bb-in{animation:bbIn .38s ease-in-out both}
+@media (prefers-reduced-motion:reduce){.bb,.bb-card,.bb-stage,.bb-dot,.bb-progress i{transition:none!important}.bb-stage.bb-in{animation:none}}
+@media (prefers-reduced-motion:reduce){.view-enter{animation:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">م</span><span>أنشطة المدينة</span></div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="تبديل المظهر">المظهر</button>
+  </div>
+
+  <nav class="days-wrap" aria-label="أيام البرنامج">
+    <div class="days" id="days" role="tablist"></div>
+  </nav>
+
+  <section class="hero" aria-live="polite">
+    <h1 class="active-title" id="activeTitle"></h1>
+    <p class="clock-label">بتوقيت المملكة العربية السعودية</p>
+    <div class="clock" id="clock" role="timer" aria-label="الساعة الآن">--:--:--</div>
+  </section>
+</header>
+
+<main>
+  <section class="bb" id="billboard" aria-label="واجهة الإحصائيات"></section>
+  <div id="view" tabindex="-1"></div>
+  <section id="detail" hidden aria-label="تفاصيل المجموعة"></section>
+</main>
+<footer class="foot">
+  <p>تُحفظ البيانات تلقائياً في هذا المتصفح فقط. خذ نسخة احتياطية بين حين وآخر لكي لا تضيع النقاط.</p>
+  <div class="foot-btns"><button class="btn btn-ghost" id="bkExport" type="button">تصدير نسخة احتياطية</button><button class="btn btn-ghost" id="bkImport" type="button">استيراد نسخة</button></div>
+  <textarea class="d-in" id="bkText" hidden aria-label="نص النسخة الاحتياطية"></textarea>
+  <div class="foot-btns" id="bkActions" hidden><button class="btn" id="bkCopy" type="button">نسخ النص</button><button class="btn" id="bkApply" type="button">تطبيق الاستيراد</button></div>
+  <p id="bkMsg" role="status"></p>
+</footer>
+
+<script>
+/* ===== Data ===== */
+const DAYS = [
+  {id:1, ord:'اليوم الأول',  name:'يوم القرآني',   wk:'السبت'},
+  {id:2, ord:'اليوم الثاني', name:'يوم خير جليس',  wk:'الأحد'},
+  {id:3, ord:'اليوم الثالث', name:'يوم الحفظ',     wk:'الاثنين'},
+  {id:4, ord:'اليوم الرابع', name:'يوم المهارات',  wk:'الثلاثاء'},
+  {id:5, ord:'اليوم الخامس', name:'يوم المفتوح',   wk:'الأربعاء'}
+];
+const fullTitle = d => `${d.ord}: ${d.name} (${d.wk})`;
+
+/* ===== Storage adapter (swap internals for Supabase later; keep the same API) ===== */
+const Store = {
+  prefix:'madinah:',
+  get(k, fallback){ try{ const v=localStorage.getItem(this.prefix+k); return v===null?fallback:JSON.parse(v); }catch(e){ return fallback; } },
+  set(k, v){ try{ localStorage.setItem(this.prefix+k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ===== State ===== */
+const State = {
+  activeDay: Store.get('activeDay', 1),
+  theme: Store.get('theme', null)
+};
+const dayFromHash = () => { const m=/^#day-([1-5])$/.exec(location.hash); return m?+m[1]:null; };
+function setDay(id, {updateHash=true}={}){
+  State.activeDay = id; Store.set('activeDay', id); Nav.leaveGroup();
+  if(updateHash && location.hash !== '#day-'+id) history.replaceState(null,'','#day-'+id);
+  render();
+}
+
+/* ===== Views (later prompts plug into renderDayView) ===== */
+function renderDayView(day){
+  return `<section class="panel"><h2>${fullTitle(day)}</h2><p>سيتم عرض أنشطة هذا اليوم هنا في الخطوات القادمة.</p></section>`;
+}
+
+/* ===== Render ===== */
+function render(){
+  const day = DAYS.find(d=>d.id===State.activeDay) || DAYS[0];
+  document.getElementById('days').innerHTML = DAYS.map(d=>`
+    <button class="day-chip" role="tab" data-day="${d.id}" aria-selected="${d.id===day.id}">
+      <small>${d.ord}</small><strong>${d.name} · ${d.wk}</strong>
+    </button>`).join('');
+  document.getElementById('activeTitle').textContent = fullTitle(day);
+  document.getElementById('view').innerHTML = renderDayView(day) + renderGrid();
+  document.title = `أنشطة المدينة — ${day.name}`;
+}
+document.getElementById('days').addEventListener('click', e=>{
+  const b=e.target.closest('[data-day]'); if(b) setDay(+b.dataset.day);
+});
+window.addEventListener('hashchange', ()=>Nav.route());
+
+/* ===== Theme ===== */
+function applyTheme(){
+  if(State.theme) document.documentElement.setAttribute('data-theme', State.theme);
+  else document.documentElement.removeAttribute('data-theme');
+}
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const dark = State.theme ? State.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  State.theme = dark ? 'light' : 'dark'; Store.set('theme', State.theme); applyTheme();
+});
+
+/* ===== Live Saudi clock (Asia/Riyadh, UTC+3) ===== */
+const fmt = new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+const clockEl = document.getElementById('clock');
+function tick(){ clockEl.textContent = fmt.format(new Date()).replace(/^24:/,'00:'); }
+tick(); setInterval(tick, 1000);
+
+/* ===== Groups data (stored; Prompt 3 will manage it) ===== */
+const ORD=['الأولى','الثانية','الثالثة','الرابعة','الخامسة','السادسة','السابعة','الثامنة','التاسعة','العاشرة','الحادية عشرة'];
+const defaultGroups=()=>ORD.map((o,i)=>({id:i+1,name:'المجموعة '+(i+1),leader:{name:'',points:0},students:[]}));
+State.groups=Store.get('groups',defaultGroups());
+
+function demoGroups(){
+  const N=['أحمد','محمد','عبدالله','يوسف','خالد','فهد','سلمان','ريان','عمر','سعد','تركي','ماجد','نواف','بدر','زياد','راكان','حمد','إبراهيم','صالح','طلال'];
+  let s=7; const rnd=n=>{s=(s*9301+49297)%233280;return Math.floor(s/233280*n)};
+  return ORD.map((o,i)=>({id:i+1,name:'المجموعة '+(i+1),
+    leader:{name:'القائد '+N[(i*2)%N.length],points:rnd(70)},
+    students:Array.from({length:5},(_,k)=>({id:i*10+k+1,name:N[(i*3+k*4+1)%N.length]+' '+N[(i+k*5+7)%N.length],points:rnd(60)}))}));
+}
+
+/* ===== Statistics logic ===== */
+const num=v=>+v||0, fmtN=n=>n.toLocaleString('en-US');
+const gTotal=g=>num(g.leader.points)+g.students.reduce((a,s)=>a+num(s.points),0)+(g.mgmtG||[]).reduce((a,m)=>a+num(m.pts),0);
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function winners(){
+  const gs=State.groups, mg=Math.max(0,...gs.map(gTotal)), ml=Math.max(0,...gs.map(g=>num(g.leader.points)));
+  return {
+    groups:mg>0?gs.filter(g=>gTotal(g)===mg):[],
+    leaders:ml>0?gs.filter(g=>num(g.leader.points)===ml):[]
+  }; /* ties share the star; nothing is awarded while all scores are 0 */
+}
+const star=t=>`<span class="badge-star">★ ${t}</span>`;
+
+/* ===== Billboard ===== */
+const ROTATE_MS=10000, TICK=100;
+const bb={i:0,elapsed:0,paused:false};
+const bbEl=document.getElementById('billboard');
+
+function renderBillboard(){
+  const gs=State.groups; if(!gs.length){bbEl.innerHTML='';return}
+  bb.i=(bb.i+gs.length)%gs.length;
+  const g=gs[bb.i], w=winners();
+  const isBestG=w.groups.some(x=>x.id===g.id), isBestL=w.leaders.some(x=>x.id===g.id);
+  const top=Math.max(0,...g.students.map(s=>num(s.points)));
+  const stus=[...g.students].sort((a,b)=>num(b.points)-num(a.points));
+  const bestNames=a=>a.length?a.map(x=>esc(x.name)).join('، '):'لم تُحتسب نقاط بعد';
+  bbEl.innerHTML=`
+  <div class="bb-head">
+    <p class="bb-label">واجهة الإحصائيات · المجموعة ${bb.i+1} من ${gs.length}</p>
+    <div class="bb-nav">
+      <button class="bb-arrow" data-act="next" aria-label="المجموعة التالية">›</button>
+      <button class="bb-arrow" data-act="prev" aria-label="المجموعة السابقة">‹</button>
+    </div>
+  </div>
+  <div class="bb-progress" aria-hidden="true"><i id="bbBar"></i></div>
+  <div class="bb-stage" id="bbStage"><article class="bb-card${isBestG?' is-best':''}">
+    <div class="bb-top">
+      <div><h2 class="bb-gname"><a class="bb-link" href="#group-${g.id}">${esc(g.name)}</a></h2>${isBestG?star('أفضل مجموعة'):''}</div>
+      <div class="bb-total"><b>${fmtN(gTotal(g))}</b><span>مجموع نقاط المجموعة</span></div>
+    </div>
+    <div class="bb-leader${isBestL?' is-best':''}">
+      <div><span class="bb-role">قائد المجموعة</span><span class="bb-pname">${g.leader.name?esc(g.leader.name):'لم يُحدد القائد بعد'}</span></div>
+      ${isBestL?star('أفضل قائد'):''}
+      <span class="pts">${fmtN(num(g.leader.points))}<small>نقطة</small></span>
+    </div>
+    ${stus.length?`<ul class="bb-students">${stus.map(s=>{const b=top>0&&num(s.points)===top;return `
+      <li class="stu${b?' is-best':''}"><span class="bb-pname">${esc(s.name)}</span>${b?star('أفضل طالب في المجموعة'):''}<span class="pts">${fmtN(num(s.points))}<small>نقطة</small></span></li>`}).join('')}</ul>`
+    :'<div class="bb-empty">لا يوجد طلاب في هذه المجموعة بعد.</div>'}
+  </article>
+  <div class="bb-spot">
+    <div class="spot">${star('أفضل مجموعة')} <b>${bestNames(w.groups)}</b></div>
+    <div class="spot">${star('أفضل قائد')} <b>${w.leaders.length?w.leaders.map(x=>esc(x.leader.name||'—')).join('، '):'لم تُحتسب نقاط بعد'}</b></div>
+  </div>
+  </div><div class="bb-dots">${gs.map((x,k)=>`<button class="bb-dot" data-go="${k}" aria-label="${esc(x.name)}" ${k===bb.i?'aria-current="true"':''}></button>`).join('')}</div>
+  <div class="bb-tools">
+    <button data-act="demo" type="button">تحميل بيانات تجريبية</button>
+    <button data-act="reset" type="button">تصفير البيانات</button>
+  </div>`;
+  paintBar();
+}
+function paintBar(){const b=document.getElementById('bbBar'); if(b)b.style.width=Math.min(100,bb.elapsed/ROTATE_MS*100)+'%'}
+/* graduated blue progression: deep → ocean → deep, accents lighten at the ocean peak (every step is adjacent, wrap-around included) */
+const BB_PAL=[['#03045e','#00b4d8'],['#023e8a','#48cae4'],['#023e8a','#90e0ef'],['#0077b6','#ade8f4'],['#0077b6','#90e0ef'],['#023e8a','#48cae4'],['#03045e','#00b4d8'],['#03045e','#48cae4'],['#023e8a','#90e0ef'],['#0077b6','#48cae4'],['#023e8a','#00b4d8']];
+function applyBb(i){const p=BB_PAL[((i%BB_PAL.length)+BB_PAL.length)%BB_PAL.length]; bbEl.style.setProperty('--bb-bg',p[0]); bbEl.style.setProperty('--bb-ac',p[1]);}
+const _rb=renderBillboard;
+renderBillboard=function(){_rb(); applyBb(bb.i);};
+function goTo(i){
+  const n=State.groups.length||1, st=document.getElementById('bbStage');
+  if(bb.busy) return;
+  const dir=i>bb.i?1:-1;
+  bb.elapsed=0; paintBar(); applyBb(((i%n)+n)%n);
+  if(!st||matchMedia('(prefers-reduced-motion: reduce)').matches){bb.i=i; renderBillboard(); return;}
+  bb.busy=true;
+  st.style.setProperty('--gx',(-dir*26)+'px'); st.classList.add('bb-out');
+  setTimeout(()=>{
+    bb.i=i; renderBillboard();
+    const s=document.getElementById('bbStage'); if(s){s.style.setProperty('--gx',(dir*26)+'px'); s.classList.add('bb-in');}
+    bb.busy=false;
+  },320);
+}
+setInterval(()=>{
+  if(bb.paused||document.hidden)return;
+  bb.elapsed+=TICK;
+  if(bb.elapsed>=ROTATE_MS)goTo(bb.i+1);else paintBar();
+},TICK);
+
+bbEl.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]'), d=e.target.closest('[data-go]');
+  if(d)return goTo(+d.dataset.go);
+  if(!a)return;
+  if(a.dataset.act==='next')goTo(bb.i+1);
+  else if(a.dataset.act==='prev')goTo(bb.i-1);
+  else{State.groups=a.dataset.act==='demo'?demoGroups():defaultGroups();Store.set('groups',State.groups);goTo(0)}
+});
+bbEl.addEventListener('mouseenter',()=>bb.paused=true);
+bbEl.addEventListener('mouseleave',()=>bb.paused=false);
+bbEl.addEventListener('focusin',()=>bb.paused=true);
+bbEl.addEventListener('focusout',()=>bb.paused=false);
+window.addEventListener('storage',e=>{if(e.key===Store.prefix+'groups'){State.groups=Store.get('groups',defaultGroups());renderBillboard()}});
+renderBillboard();
+
+/* ===== Group grid + detail view navigation ===== */
+const viewEl=document.getElementById('view'), detailEl=document.getElementById('detail');
+const anim=(el,dx=0)=>{el.style.setProperty('--dx',dx+'px');el.classList.remove('view-enter');void el.offsetWidth;el.classList.add('view-enter')};
+const dName=g=>g.name.trim()||'مجموعة بلا اسم';
+const curG=()=>State.groups.find(x=>x.id===Nav.gid);
+const save=()=>Store.set('groups',State.groups);
+
+function renderGrid(){
+  const w=winners();
+  return `<section><h2 class="sec-title">مجموعات البرنامج</h2><div class="grid">`+State.groups.map(g=>{
+    const best=w.groups.some(x=>x.id===g.id);
+    return `<article class="g-card${best?' is-best':''}"><h3>${esc(dName(g))}</h3>${best?`<div>${star('أفضل مجموعة')}</div>`:''}
+      <p class="g-meta">القائد: ${g.leader.name?esc(g.leader.name):'لم يُحدد بعد'}</p>
+      <p class="g-meta">عدد الطلاب: ${g.students.length}</p>
+      <div class="g-foot"><span class="pts">${fmtN(gTotal(g))}<small>نقطة</small></span><a class="btn" href="#group-${g.id}">إظهار تفاصيل المجموعة</a></div></article>`}).join('')+`</div></section>`;
+}
+
+const Nav={
+  view:'home', gid:null, homeY:0,
+  route(){
+    const m=/^#group-(\d+)$/.exec(location.hash), g=m&&State.groups.find(x=>x.id===+m[1]);
+    if(g) return this.openGroup(g.id);
+    const d=dayFromHash();
+    if(d&&d!==State.activeDay) setDay(d,{updateHash:false}); else this.leaveGroup();
+  },
+  openGroup(id){
+    const fromHome=this.view==='home';
+    if(fromHome) this.homeY=window.scrollY;
+    this.gid=id; this.view='group';
+    bbEl.hidden=true; viewEl.hidden=true; detailEl.hidden=false;
+    document.title='أنشطة المدينة — '+dName(curG());
+    this.renderDetail(0,fromHome);
+    if(fromHome) window.scrollTo(0,0);
+  },
+  switchTo(id,dir){
+    this.gid=id; history.replaceState(null,'','#group-'+id);
+    document.title='أنشطة المدينة — '+dName(curG());
+    this.renderDetail(dir);
+  },
+  step(d){const gs=State.groups,i=gs.findIndex(x=>x.id===this.gid);this.switchTo(gs[(i+d+gs.length)%gs.length].id,d)},
+  goHome(){location.hash='#day-'+State.activeDay},
+  leaveGroup(){
+    if(this.view==='home') return;
+    this.view='home'; detailEl.hidden=true; bbEl.hidden=false; viewEl.hidden=false;
+    render(); renderBillboard(); anim(bbEl); anim(viewEl);
+    window.scrollTo(0,this.homeY);
+  },
+  renderDetail(dir=0,animate=true){
+    const gs=State.groups, g=curG(), best=winners().groups.some(x=>x.id===g.id);
+    detailEl.innerHTML=`
+    <div class="d-bar">
+      <button class="btn btn-ghost" data-act="home" type="button">العودة للرئيسية</button>
+      <div class="d-switch">
+        <button class="btn btn-ghost" data-act="prev" type="button">المجموعة السابقة</button>
+        <select id="dSel" aria-label="اختيار المجموعة">${gs.map(x=>`<option value="${x.id}"${x.id===g.id?' selected':''}>${esc(dName(x))}</option>`).join('')}</select>
+        <button class="btn btn-ghost" data-act="next" type="button">المجموعة التالية</button>
+      </div>
+    </div>
+    <div class="d-team${best?' is-best':''}" id="dTeam">
+      <div><span class="d-lab">اسم الفريق</span><h2 id="dName">${esc(dName(g))}</h2><button class="btn btn-ghost d-edit" data-act="editName" type="button">تعديل الاسم</button><span id="dStar">${best?star('أفضل مجموعة'):''}</span></div>
+      <div class="bb-total"><b id="dTotal">${fmtN(gTotal(g))}</b><span>مجموع نقاط المجموعة</span></div>
+    </div>
+    <h2 class="d-day">${fullTitle(DAYS.find(d=>d.id===State.activeDay)||DAYS[0])}</h2>
+    <div class="d-cols">
+      <section class="d-col" aria-label="بيانات المجموعة"><h3 class="d-head">إدارة الفريق والطلاب</h3>
+        <label class="d-fld">اسم المجموعة<input class="d-in" id="dNameIn" value="${esc(g.name)}"></label>
+        <div class="d-fld d-leader" data-drop="l">قائد المجموعة <small class="d-hint">اسحب طالباً هنا لتعيينه قائداً</small>
+          <div class="d-row"><span class="d-grip" data-drag="l" role="img" aria-label="سحب القائد">⋮⋮</span><input class="d-in" id="dLeader" placeholder="اسم القائد" value="${esc(g.leader.name)}" aria-label="اسم القائد"><input class="d-in d-pts" id="dLeaderPts" type="number" min="0" readonly title="تُحسب تلقائياً من التقييمات" value="${num(g.leader.points)}" aria-label="نقاط القائد"></div></div>
+        <h3>الطلاب (${g.students.length})</h3>
+        ${g.students.length?`<ul class="d-list">${g.students.map(s=>`<li class="d-row" data-sid="${s.id}" data-drop="s"><span class="d-grip" data-drag="s:${s.id}" role="img" aria-label="سحب الطالب">⋮⋮</span><input class="d-in" data-sid="${s.id}" data-f="name" value="${esc(s.name)}" aria-label="اسم الطالب"><input class="d-in d-pts" type="number" min="0" readonly title="تُحسب تلقائياً من التقييمات" data-sid="${s.id}" data-f="points" value="${num(s.points)}" aria-label="نقاط الطالب"><button class="d-rm" data-act="rm" data-sid="${s.id}" type="button" aria-label="حذف الطالب">×</button></li>`).join('')}</ul>`:'<div class="bb-empty" style="color:var(--text-soft)">لا يوجد طلاب بعد.</div>'}
+        <div class="d-row"><input class="d-in" id="dAdd" placeholder="اسم طالب جديد"><button class="btn" data-act="add" type="button">إضافة طالب</button></div>
+      </section>
+      <section class="d-col" id="dEval" aria-label="التقييمات"><h3>التقييمات والنماذج</h3><p>سيُضاف هذا القسم في الخطوة القادمة.</p></section>
+    </div>`;
+    detailEl.insertAdjacentHTML('beforeend',`<div class="d-tray" id="dTray" hidden><span>نقل الطالب إلى:</span>${gs.filter(x=>x.id!==g.id).map(x=>`<button class="d-chip" type="button" tabindex="-1" data-drop="g:${x.id}">${esc(dName(x))}</button>`).join('')}</div>`);
+    renderEval();
+    if(animate) anim(detailEl,-dir*16);
+  }
+};
+function metaRefresh(g){
+  const best=winners().groups.some(x=>x.id===g.id);
+  document.getElementById('dTotal').textContent=fmtN(gTotal(g));
+  document.getElementById('dStar').innerHTML=best?star('أفضل مجموعة'):'';
+  document.getElementById('dTeam').classList.toggle('is-best',best);
+}
+detailEl.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act, g=curG();
+  if(a==='editName'){const i=document.getElementById('dNameIn');i.scrollIntoView({block:'center'});i.focus();i.select();}
+  else if(a==='home') Nav.goHome();
+  else if(a==='prev') Nav.step(-1);
+  else if(a==='next') Nav.step(1);
+  else if(a==='add'){const i=document.getElementById('dAdd'),v=i.value.trim(); if(!v){i.focus();return} g.students.push({id:Date.now(),name:v,points:0}); save(); Nav.renderDetail(0,false); document.getElementById('dAdd').focus();}
+  else if(a==='rm'){g.students=g.students.filter(s=>s.id!==+b.dataset.sid); save(); Nav.renderDetail(0,false);}
+});
+detailEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='dAdd')detailEl.querySelector('[data-act="add"]').click()});
+detailEl.addEventListener('change',e=>{
+  if(e.target.id!=='dSel') return;
+  const gs=State.groups, to=+e.target.value, d=Math.sign(gs.findIndex(x=>x.id===to)-gs.findIndex(x=>x.id===Nav.gid));
+  Nav.switchTo(to,d);
+});
+detailEl.addEventListener('input',e=>{
+  const t=e.target, g=curG(); if(!g) return;
+  if(t.id==='dNameIn'){g.name=t.value; document.getElementById('dName').textContent=dName(g); const o=detailEl.querySelector('#dSel option[value="'+g.id+'"]'); if(o)o.textContent=dName(g);}
+  else if(t.id==='dLeader') g.leader.name=t.value;
+  else if(t.id==='dLeaderPts') g.leader.points=Math.max(0,+t.value||0);
+  else if(t.dataset.sid){const s=g.students.find(x=>x.id===+t.dataset.sid); if(!s)return; if(t.dataset.f==='name')s.name=t.value; else s.points=Math.max(0,+t.value||0);}
+  else return;
+  save(); metaRefresh(g);
+});
+
+/* ===== Drag & drop (pointer events: mouse + touch) ===== */
+function applyDrop(S,t){
+  const g=curG(), idx=id=>g.students.findIndex(s=>s.id===id);
+  const si=S.isL?-1:idx(+S.id.slice(2));
+  if(t.kind==='g'){
+    const to=State.groups.find(x=>x.id===t.id); if(S.isL||!to||si<0) return false;
+    to.students.push(g.students.splice(si,1)[0]); return true;
+  }
+  if(t.kind==='l'){
+    if(S.isL||si<0) return false;
+    const s=g.students[si], old=g.leader; g.leader={name:s.name,points:s.points,evals:s.evals};
+    if(old.name.trim()) g.students[si]={id:s.id,name:old.name,points:old.points,evals:old.evals}; else g.students.splice(si,1);
+    return true;
+  }
+  const ti=idx(t.id); if(ti<0) return false;
+  if(S.isL){const s=g.students[ti], old=g.leader; g.leader={name:s.name,points:s.points,evals:s.evals}; g.students[ti]={id:s.id,name:old.name,points:old.points,evals:old.evals}; return true;}
+  if(si===ti) return false;
+  const [s]=g.students.splice(si,1); let ni=idx(t.id); if(t.after) ni++; g.students.splice(ni,0,s); return true;
+}
+detailEl.addEventListener('pointerdown',e=>{
+  const h=e.target.closest('[data-drag]'); if(!h||(e.pointerType==='mouse'&&e.button!==0)) return;
+  const g=curG(), isL=h.dataset.drag==='l';
+  const src=isL?g.leader:g.students.find(s=>s.id===+h.dataset.drag.slice(2));
+  if(!src||!src.name.trim()) return;
+  e.preventDefault();
+  const S={id:h.dataset.drag,isL}, row=h.closest('.d-row');
+  const ghost=document.createElement('div'); ghost.className='d-ghost'; ghost.textContent=src.name; document.body.appendChild(ghost);
+  row.classList.add('dragging'); document.getElementById('dTray').hidden=false;
+  h.setPointerCapture(e.pointerId);
+  let t=null;
+  const clear=()=>detailEl.querySelectorAll('.drop-hot,.drop-before,.drop-after').forEach(n=>n.classList.remove('drop-hot','drop-before','drop-after'));
+  const move=ev=>{
+    ghost.style.left=ev.clientX+14+'px'; ghost.style.top=ev.clientY-22+'px';
+    if(ev.clientY<70) scrollBy(0,-14); else if(ev.clientY>innerHeight-130) scrollBy(0,14);
+    clear(); t=null;
+    const el=document.elementFromPoint(ev.clientX,ev.clientY), d=el&&el.closest('[data-drop]'); if(!d) return;
+    const k=d.dataset.drop;
+    if(k==='l'){ if(isL) return; t={kind:'l'}; d.classList.add('drop-hot'); }
+    else if(k[0]==='g'){ if(isL) return; t={kind:'g',id:+k.slice(2)}; d.classList.add('drop-hot'); }
+    else { const id=+d.dataset.sid; if(!isL&&id===+S.id.slice(2)) return; const r=d.getBoundingClientRect(), after=ev.clientY>r.top+r.height/2; t={kind:'s',id,after}; d.classList.add(isL?'drop-hot':after?'drop-after':'drop-before'); }
+  };
+  const end=ev=>{
+    h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',end); h.removeEventListener('pointercancel',end);
+    ghost.remove(); clear(); row.classList.remove('dragging'); document.getElementById('dTray').hidden=true;
+    if(ev.type==='pointerup'&&t&&applyDrop(S,t)){save(); Nav.renderDetail(0,false);}
+  };
+  h.addEventListener('pointermove',move); h.addEventListener('pointerup',end); h.addEventListener('pointercancel',end);
+  move(e);
+});
+
+/* ===== Left column: evaluations ===== */
+const ROUTINE=['صلاة الليل','مناجاة','الأدعية','النوم في وقته','الإفطار في وقته','الكفاءة والفاعلية في النشاط','الأعمال في الحرم','النظافة الشخصية (ترتيب الغرفة - الأناقة - الرائحة الطيبة - الأسنان)','الصلوات في وقتها','الأخلاق والسلوك'];
+const Eval={main:'members',sub:{members:'routine',leader:'routine'},sid:null};
+const SUBS={
+  members:[['routine','الروتين'],['activity','النشاط'],['mgmt','نقاط الإدارة']],
+  leader:[['routine','الروتين'],['challenge','تحدي الوقت المفتوح'],['support','الكفاءة والفاعلية في دعم الفريق']]
+};
+const routineOf=(p,day)=>p&&p.evals&&p.evals[day]&&p.evals[day].routine;
+const rScore=r=>r?r.c.filter(Boolean).length:0;
+/* total points of a person = sum of every evaluation category over all days (later prompts add theirs here) */
+const actKey=(d,i)=>d+'-'+i;
+const actScore=(a,d,i)=>{const def=State.acts[actKey(d,i)]; return a&&a.c&&def?def.crit.filter(c=>a.c[c.id]).length:0};
+const scoreOf=p=>Object.entries(p.evals||{}).reduce((t,[d,e])=>t+rScore(e.routine)+(e.mgmt||[]).reduce((u,m)=>u+num(m.pts),0)+lScoreAll(e,d)+Object.entries(e.act||{}).reduce((u,[i,a])=>u+actScore(a,d,i),0),0);
+const evPerson=g=>Eval.main==='leader'?g.leader:g.students.find(s=>s.id===Eval.sid);
+function ensureRt(p,day){
+  p.evals=p.evals||{}; const e=p.evals[day]=p.evals[day]||{};
+  return e.routine=e.routine||{c:Array(10).fill(false),n:Array(10).fill('')};
+}
+function renderEval(){
+  const g=curG(), el=document.getElementById('dEval'); if(!g||!el) return;
+  if(!g.students.some(s=>s.id===Eval.sid)) Eval.sid=g.students.length?g.students[0].id:null;
+  const m=Eval.main, sub=Eval.sub[m], day=State.activeDay, dayObj=DAYS.find(d=>d.id===day)||DAYS[0];
+  const p=evPerson(g);
+  const who=m==='leader'?(g.leader.name.trim()||'القائد (لم يُحدد الاسم بعد)'):(p?p.name:'');
+  let body;
+  if(m==='members'&&sub==='mgmt') body=mgmtBody(g,p);
+  else if(m==='members'&&!p) body='<div class="bb-empty" style="color:var(--text-soft)">أضف طلاباً إلى المجموعة أولاً لتقييمهم.</div>';
+  else if(m==='members'&&sub==='activity') body=actBody(g,p);
+  else if(m==='leader'&&(sub==='challenge'||sub==='support')) body=leaderBody(g,sub);
+  else if(sub!=='routine') body='<div class="bb-empty" style="color:var(--text-soft)">هذا القسم سيُضاف في الخطوة القادمة.</div>';
+  else{
+    const r=routineOf(p,day), c=r?r.c:[], n=r?r.n:[];
+    body=`<div class="ev-score"><span>درجة الروتين: ${esc(who)}</span><b id="evScore">${rScore(r)} / 10</b></div>
+    <div class="ev-wrap"><table class="ev-table"><thead><tr><th>المعيار</th><th class="c">التقييم (صح)</th><th>ملاحظات</th></tr></thead><tbody>
+    ${ROUTINE.map((t,i)=>`<tr><td>${i+1}. ${t}</td><td class="c"><input type="checkbox" data-ri="${i}" aria-label="${esc(t)}"${c[i]?' checked':''}></td><td><input class="d-in" data-rn="${i}" value="${esc(n[i]||'')}" placeholder="ملاحظة" aria-label="ملاحظات"></td></tr>`).join('')}
+    </tbody><tfoot><tr><td>المجموع</td><td colspan="2" id="evScore2" style="direction:ltr;text-align:start">${rScore(r)} / 10</td></tr></tfoot></table></div>`;
+  }
+  el.innerHTML=`<h3 class="d-head">التقييمات والنماذج</h3>
+  <p class="ev-day">التقييم لـ ${fullTitle(dayObj)}</p>
+  <div class="ev-main"><button type="button" data-ev-main="members" aria-pressed="${m==='members'}">1. تقييم أعضاء الفريق</button><button type="button" data-ev-main="leader" aria-pressed="${m==='leader'}">2. تقييم القائد</button></div>
+  <div class="ev-sub">${SUBS[m].map(([k,t])=>`<button type="button" data-ev-sub="${k}" aria-pressed="${k===sub}">${t}</button>`).join('')}</div>
+  ${m==='members'&&g.students.length&&!(sub==='mgmt'&&Eval.mT==='group')?`<label class="d-fld">الطالب المُقيَّم<select class="d-in" id="evStu">${g.students.map(s=>`<option value="${s.id}"${s.id===Eval.sid?' selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`:''}
+  ${body}`;
+}
+function syncPts(g){
+  const l=document.getElementById('dLeaderPts'); if(l) l.value=num(g.leader.points);
+  detailEl.querySelectorAll('input[data-f="points"]').forEach(i=>{const s=g.students.find(x=>x.id===+i.dataset.sid); if(s) i.value=num(s.points)});
+}
+detailEl.addEventListener('click',e=>{
+  const b=e.target.closest('[data-ev-main],[data-ev-sub]'); if(!b) return;
+  if(b.dataset.evMain) Eval.main=b.dataset.evMain; else Eval.sub[Eval.main]=b.dataset.evSub;
+  renderEval();
+});
+detailEl.addEventListener('change',e=>{
+  const t=e.target, g=curG(); if(!g) return;
+  if(t.id==='evStu'){Eval.sid=+t.value; renderEval(); return}
+  if(t.dataset.ri===undefined) return;
+  const p=evPerson(g); if(!p) return;
+  const r=ensureRt(p,State.activeDay); r.c[+t.dataset.ri]=t.checked;
+  p.points=scoreOf(p); save();
+  const s=rScore(r)+' / 10'; document.getElementById('evScore').textContent=s; document.getElementById('evScore2').textContent=s;
+  syncPts(g); metaRefresh(g);
+});
+detailEl.addEventListener('input',e=>{
+  const t=e.target; if(t.dataset.rn===undefined) return;
+  const g=curG(), p=g&&evPerson(g); if(!p) return;
+  ensureRt(p,State.activeDay).n[+t.dataset.rn]=t.value; save();
+});
+
+/* ===== Activities (members only) ===== */
+State.acts=Store.get('acts',{}); /* {"day-idx":{sup:'',crit:[{id,t}]}} — shared by all groups; checks/notes live on each student */
+const saveActs=()=>Store.set('acts',State.acts);
+const ACT_DAYS=[
+  {id:1,label:'اليوم القرآني (السبت)',acts:['نشاط المقامات']},
+  {id:2,label:'يوم خير جليس (الأحد)',acts:['النشاط الأول: مشهد وحكاية','النشاط الثاني: حياة المعصومين']},
+  {id:3,label:'يوم الحفظ (الاثنين)',acts:['النشاط الأول: المونتاج','النشاط الثاني: ماراثون الحفظ']},
+  {id:4,label:'يوم المهارات (الثلاثاء)',acts:['النشاط الأول: صوت وأثر','النشاط الثاني: البحث القرآني']},
+  {id:5,label:'اليوم المفتوح (الأربعاء)',acts:['النشاط الأول: إدارة المشاريع','النشاط الثاني: كتاب في سطور']}
+];
+const actCur=()=>{const day=Eval.actDay||State.activeDay, D=ACT_DAYS.find(x=>x.id===day)||ACT_DAYS[0]; const idx=Math.min(Eval.actIdx||0,D.acts.length-1); return {day:D.id,D,idx,key:actKey(D.id,idx)}};
+const actDef=key=>State.acts[key]||(State.acts[key]={sup:'',crit:[]});
+function ensureAct(p,day,idx){
+  p.evals=p.evals||{}; const e=p.evals[day]=p.evals[day]||{}; e.act=e.act||{};
+  return e.act[idx]=e.act[idx]||{c:{},n:{}};
+}
+function recalcAll(){
+  State.groups.forEach(g=>[g.leader,...g.students].forEach(p=>{if(p.evals&&Object.keys(p.evals).length) p.points=scoreOf(p)}));
+  save();
+}
+function actBody(g,p){
+  const {day,D,idx,key}=actCur(), def=State.acts[key]||{sup:'',crit:[]};
+  const a=p.evals&&p.evals[day]&&p.evals[day].act&&p.evals[day].act[idx], sc=actScore(a,day,idx);
+  const rows=def.crit.length?def.crit.map(c=>`<tr><td><input class="d-in" data-at="${c.id}" value="${esc(c.t)}" aria-label="اسم المعيار"></td><td class="c"><input type="checkbox" data-ac="${c.id}" aria-label="${esc(c.t)}"${a&&a.c&&a.c[c.id]?' checked':''}></td><td><input class="d-in" data-an="${c.id}" value="${esc((a&&a.n&&a.n[c.id])||'')}" placeholder="ملاحظة" aria-label="ملاحظات"></td><td><button class="d-rm" type="button" data-adel="${c.id}" aria-label="حذف المعيار">×</button></td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--text-soft)">لم تُضف معايير لهذا النشاط بعد.</td></tr>';
+  return `<div class="ev-sub act-toggle" role="group" aria-label="أيام الأنشطة">${ACT_DAYS.map(x=>`<button type="button" data-ad="${x.id}" aria-pressed="${x.id===day}">${x.label}</button>`).join('')}</div>
+  <div class="act-head"><h3>${D.label}</h3>
+    ${D.acts.length>1?`<div class="ev-sub act-toggle" role="group"><button type="button" data-ai="0" aria-pressed="${idx===0}">النشاط الأول</button><button type="button" data-ai="1" aria-pressed="${idx===1}">النشاط الثاني</button></div>`:''}
+    <p class="act-title">${D.acts[idx]}</p></div>
+  <label class="d-fld">مسؤول النشاط<input class="d-in" id="actSup" value="${esc(def.sup)}" placeholder="اسم مسؤول النشاط"></label>
+  <div class="ev-score"><span>درجة النشاط: ${esc(p.name)}</span><b id="actScore">${sc} / 10</b></div>
+  <div class="ev-wrap"><table class="ev-table"><thead><tr><th>معايير النشاط</th><th class="c">التقييم (صح)</th><th>ملاحظات</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="d-row"><input class="d-in" id="actNew" placeholder="اسم المعيار الجديد"${def.crit.length>=10?' disabled':''}><button class="btn" type="button" data-aadd="1"${def.crit.length>=10?' disabled':''}>+ إضافة معيار</button></div>
+  <span class="act-count">عدد المعايير: ${def.crit.length} / 10</span>`;
+}
+detailEl.addEventListener('click',e=>{
+  const b=e.target.closest('[data-ad],[data-ai],[data-aadd],[data-adel]'); if(!b) return;
+  if(b.dataset.ad){Eval.actDay=+b.dataset.ad; Eval.actIdx=0; return renderEval();}
+  if(b.dataset.ai){Eval.actIdx=+b.dataset.ai; return renderEval();}
+  const {key}=actCur(), def=actDef(key);
+  if(b.dataset.aadd){
+    const i=document.getElementById('actNew'), v=i.value.trim();
+    if(!v){i.focus();return} if(def.crit.length>=10) return;
+    def.crit.push({id:'c'+Date.now(),t:v}); saveActs(); renderEval(); document.getElementById('actNew')?.focus();
+  } else if(b.dataset.adel){
+    def.crit=def.crit.filter(c=>c.id!==b.dataset.adel); saveActs(); recalcAll(); renderEval(); syncPts(curG()); metaRefresh(curG());
+  }
+});
+detailEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='actNew')detailEl.querySelector('[data-aadd]').click()});
+detailEl.addEventListener('change',e=>{
+  const t=e.target; if(t.dataset.ac===undefined) return;
+  const g=curG(), p=g&&evPerson(g); if(!p) return;
+  const {day,idx}=actCur(); ensureAct(p,day,idx).c[t.dataset.ac]=t.checked;
+  p.points=scoreOf(p); save();
+  document.getElementById('actScore').textContent=actScore(p.evals[day].act[idx],day,idx)+' / 10';
+  syncPts(g); metaRefresh(g);
+});
+detailEl.addEventListener('input',e=>{
+  const t=e.target, {day,idx,key}=actCur();
+  if(t.id==='actSup'){actDef(key).sup=t.value; saveActs();}
+  else if(t.dataset.at!==undefined){const c=actDef(key).crit.find(x=>x.id===t.dataset.at); if(c){c.t=t.value; saveActs();}}
+  else if(t.dataset.an!==undefined){const g=curG(), p=g&&evPerson(g); if(p){ensureAct(p,day,idx).n[t.dataset.an]=t.value; save();}}
+});
+
+/* ===== Management points (members only) ===== */
+const tsFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+function mgmtLog(g){
+  const out=(g.mgmtG||[]).map(m=>({...m,who:'المجموعة كاملة',grp:true}));
+  g.students.forEach(s=>Object.entries(s.evals||{}).forEach(([d,e])=>(e.mgmt||[]).forEach(m=>out.push({...m,day:+d,who:s.name,sid:s.id}))));
+  return out.sort((a,b)=>b.ts-a.ts);
+}
+function mgmtBody(g,p){
+  const tg=Eval.mT||'student', pts=Eval.mPts??1, log=mgmtLog(g), total=log.reduce((t,m)=>t+num(m.pts),0);
+  const toggle=`<div class="ev-sub" role="group" aria-label="تحديد المجموعة أو الفرد"><button type="button" data-mt="student" aria-pressed="${tg==='student'}">فرد</button><button type="button" data-mt="group" aria-pressed="${tg==='group'}">المجموعة كاملة</button></div>`;
+  if(tg==='student'&&!p) return toggle+'<div class="bb-empty" style="color:var(--text-soft)">أضف طلاباً إلى المجموعة أولاً أو اختر «المجموعة كاملة».</div>';
+  const rows=log.length?log.map(m=>{const dn=(DAYS.find(d=>d.id===m.day)||{}).name||'';return `<tr><td>${esc(m.who)}</td><td><span class="m-pos">+${num(m.pts)}</span></td><td>${esc(m.reason)}</td><td>${esc(dn)}<br><small>${tsFmt.format(m.ts)}</small></td><td><button class="d-rm" type="button" data-mdel="${m.id}" aria-label="حذف النقاط">×</button></td></tr>`}).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--text-soft)">لم تُمنح نقاط إدارة لهذه المجموعة بعد.</td></tr>';
+  return `${toggle}
+  <div class="d-fld">عدد الدرجات (0 إلى 10)<div class="mp-grid" id="mpGrid">${Array.from({length:11},(_,i)=>`<button type="button" class="mp-btn" data-mp="${i}" aria-pressed="${i===pts}">${i}</button>`).join('')}</div></div>
+  <label class="d-fld">ملاحظة — سبب الزيادة<textarea class="d-in" id="mgmtReason" rows="2" placeholder="اكتب سبب الزيادة">${esc(Eval.mReason||'')}</textarea></label>
+  <p class="m-err" id="mErr" role="status"></p>
+  <button class="btn" type="button" data-madd="1">إضافة النقاط ${tg==='group'?'للمجموعة كاملة':'لـ '+esc(p.name)}</button>
+  <h3 class="d-head">سجل نقاط الإدارة — المجموع: +${total}</h3>
+  <div class="ev-wrap"><table class="ev-table"><thead><tr><th>المستلم</th><th>النقاط</th><th>السبب</th><th>اليوم / الوقت</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+detailEl.addEventListener('click',e=>{
+  const b=e.target.closest('[data-mt],[data-mp],[data-madd],[data-mdel]'); if(!b) return;
+  const g=curG(); if(!g) return;
+  if(b.dataset.mt){Eval.mT=b.dataset.mt; return renderEval();}
+  if(b.dataset.mp!==undefined){
+    Eval.mPts=+b.dataset.mp;
+    document.querySelectorAll('#mpGrid .mp-btn').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    return;
+  }
+  if(b.dataset.madd){
+    const pts=Eval.mPts??1, reason=(Eval.mReason||'').trim(), err=document.getElementById('mErr');
+    if(pts<1){err.textContent='اختر عدد نقاط أكبر من صفر.';return}
+    if(!reason){err.textContent='اكتب سبب الزيادة.';document.getElementById('mgmtReason').focus();return}
+    const entry={id:'m'+Date.now()+Math.random().toString(36).slice(2,6),pts,reason,day:State.activeDay,ts:Date.now()};
+    if((Eval.mT||'student')==='group'){(g.mgmtG=g.mgmtG||[]).push(entry);}
+    else{const p=evPerson(g); if(!p) return; p.evals=p.evals||{}; const ev=p.evals[State.activeDay]=p.evals[State.activeDay]||{}; (ev.mgmt=ev.mgmt||[]).push(entry); p.points=scoreOf(p);}
+    Eval.mReason=''; save(); renderEval(); syncPts(g); metaRefresh(g);
+    return;
+  }
+  if(b.dataset.mdel){
+    const id=b.dataset.mdel;
+    g.mgmtG=(g.mgmtG||[]).filter(m=>m.id!==id);
+    g.students.forEach(s=>Object.values(s.evals||{}).forEach(ev=>{if(ev.mgmt&&ev.mgmt.some(m=>m.id===id)){ev.mgmt=ev.mgmt.filter(m=>m.id!==id); s.points=scoreOf(s);}}));
+    save(); renderEval(); syncPts(g); metaRefresh(g);
+  }
+});
+detailEl.addEventListener('input',e=>{if(e.target.id==='mgmtReason'){Eval.mReason=e.target.value;document.getElementById('mErr').textContent='';}});
+
+/* ===== Leader evaluations: open time challenge + team support ===== */
+State.lacts=Store.get('lacts',{}); /* {"kind-day":{crit:[{id,t}]}}; checks/notes live on the leader: evals[day].lead[kind] */
+const saveLacts=()=>Store.set('lacts',State.lacts);
+const LEAD_TITLES={challenge:'تحدي الوقت المفتوح',support:'الكفاءة والفاعلية في دعم الفريق'};
+function lScore(l,kind,day){const def=State.lacts[kind+'-'+day]; return l&&l.c&&def?def.crit.filter(c=>l.c[c.id]).length:0}
+function lScoreAll(e,d){return ['challenge','support'].reduce((t,k)=>t+lScore(e.lead&&e.lead[k],k,d),0)}
+function ensureLead(p,day,kind){
+  p.evals=p.evals||{}; const e=p.evals[day]=p.evals[day]||{}; e.lead=e.lead||{};
+  return e.lead[kind]=e.lead[kind]||{c:{},n:{}};
+}
+function leaderBody(g,kind){
+  const p=g.leader, day=State.activeDay, def=State.lacts[kind+'-'+day]||{crit:[]};
+  const l=p.evals&&p.evals[day]&&p.evals[day].lead&&p.evals[day].lead[kind], sc=lScore(l,kind,day);
+  const dayObj=DAYS.find(d=>d.id===day)||DAYS[0], who=p.name.trim()||'القائد (لم يُحدد الاسم بعد)';
+  const rows=def.crit.length?def.crit.map(c=>`<tr><td><input class="d-in" data-lt="${c.id}" value="${esc(c.t)}" aria-label="اسم الفعل"></td><td class="c"><input type="checkbox" data-lc="${c.id}" aria-label="${esc(c.t)}"${l&&l.c&&l.c[c.id]?' checked':''}></td><td><input class="d-in" data-ln="${c.id}" value="${esc((l&&l.n&&l.n[c.id])||'')}" placeholder="ملاحظة" aria-label="ملاحظات"></td><td><button class="d-rm" type="button" data-ldel="${c.id}" aria-label="حذف الفعل">×</button></td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--text-soft)">لم تُضف أفعال لهذا القسم بعد.</td></tr>';
+  return `<div class="act-head"><h3>${LEAD_TITLES[kind]}</h3><p class="act-title">${fullTitle(dayObj)}</p></div>
+  <div class="ev-score"><span>درجة ${LEAD_TITLES[kind]}: ${esc(who)}</span><b id="lScore">${sc} / 10</b></div>
+  <div class="ev-wrap"><table class="ev-table"><thead><tr><th>الأفعال</th><th class="c">التقييم (صح)</th><th>ملاحظات</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="d-row"><input class="d-in" id="lNew" placeholder="اسم الفعل الجديد"${def.crit.length>=10?' disabled':''}><button class="btn" type="button" data-ladd="1"${def.crit.length>=10?' disabled':''}>+ إضافة فعل</button></div>
+  <span class="act-count">عدد الأفعال: ${def.crit.length} / 10</span>`;
+}
+const lDef=key=>State.lacts[key]||(State.lacts[key]={crit:[]});
+detailEl.addEventListener('click',e=>{
+  const b=e.target.closest('[data-ladd],[data-ldel]'); if(!b) return;
+  const kind=Eval.sub.leader, def=lDef(kind+'-'+State.activeDay);
+  if(b.dataset.ladd){
+    const i=document.getElementById('lNew'), v=i.value.trim();
+    if(!v){i.focus();return} if(def.crit.length>=10) return;
+    def.crit.push({id:'a'+Date.now(),t:v}); saveLacts(); renderEval(); document.getElementById('lNew')?.focus();
+  } else {
+    def.crit=def.crit.filter(c=>c.id!==b.dataset.ldel); saveLacts(); recalcAll(); renderEval(); syncPts(curG()); metaRefresh(curG());
+  }
+});
+detailEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lNew')detailEl.querySelector('[data-ladd]').click()});
+detailEl.addEventListener('change',e=>{
+  const t=e.target; if(t.dataset.lc===undefined) return;
+  const g=curG(); if(!g) return; const p=g.leader, kind=Eval.sub.leader, day=State.activeDay;
+  ensureLead(p,day,kind).c[t.dataset.lc]=t.checked; p.points=scoreOf(p); save();
+  document.getElementById('lScore').textContent=lScore(p.evals[day].lead[kind],kind,day)+' / 10';
+  syncPts(g); metaRefresh(g);
+});
+detailEl.addEventListener('input',e=>{
+  const t=e.target, kind=Eval.sub.leader, day=State.activeDay;
+  if(t.dataset.lt!==undefined){const c=lDef(kind+'-'+day).crit.find(x=>x.id===t.dataset.lt); if(c){c.t=t.value; saveLacts();}}
+  else if(t.dataset.ln!==undefined){const g=curG(); if(g){ensureLead(g.leader,day,kind).n[t.dataset.ln]=t.value; save();}}
+});
+
+/* ===== Backup: export / import (text-based, works inside the published page) ===== */
+(()=>{
+  const $=id=>document.getElementById(id), ta=$('bkText'), act=$('bkActions'), msg=$('bkMsg');
+  const show=(txt,m)=>{ta.hidden=false;act.hidden=false;ta.value=txt;msg.textContent=m};
+  $('bkExport').addEventListener('click',()=>{
+    show(JSON.stringify({v:1,groups:State.groups,acts:State.acts,lacts:State.lacts,activeDay:State.activeDay},null,1),'انسخ هذا النص واحفظه في ملف أو ملاحظات لتسترده لاحقاً.');
+    ta.focus(); ta.select();
+  });
+  $('bkImport').addEventListener('click',()=>{show('','الصق نص النسخة الاحتياطية هنا ثم اضغط «تطبيق الاستيراد». ستُستبدل بياناتك الحالية.');ta.focus()});
+  $('bkCopy').addEventListener('click',async()=>{
+    ta.select();
+    try{await navigator.clipboard.writeText(ta.value); msg.textContent='تم نسخ النص.'}catch(e){try{document.execCommand('copy'); msg.textContent='تم نسخ النص.'}catch(_){msg.textContent='تعذّر النسخ تلقائياً، حدّد النص وانسخه يدوياً.'}}
+  });
+  $('bkApply').addEventListener('click',()=>{
+    try{
+      const d=JSON.parse(ta.value);
+      if(!d||!Array.isArray(d.groups)||!d.groups.length||!d.groups.every(g=>g&&g.leader&&Array.isArray(g.students))) throw new Error('bad');
+      State.groups=d.groups; State.acts=d.acts||{}; State.lacts=d.lacts||{};
+      Store.set('groups',State.groups); saveActs(); saveLacts();
+      Eval.sid=null; bb.i=0; bb.elapsed=0;
+      history.replaceState(null,'','#day-'+State.activeDay); Nav.leaveGroup(); render(); renderBillboard();
+      msg.textContent='تم استيراد البيانات بنجاح.';
+    }catch(e){msg.textContent='النص غير صالح. تأكد أنك لصقت نسخة من «تصدير نسخة احتياطية» كاملة.'}
+  });
+})();
+
+/* ===== Boot ===== */
+applyTheme();
+setDay(dayFromHash() || State.activeDay, {updateHash:!!dayFromHash()});
+Nav.route();
+</script>
+</body>
+</html>
