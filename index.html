@@ -92,6 +92,16 @@ main{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
 .panel{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:28px 22px;text-align:center}
 .panel h2{margin:0 0 6px;font-size:1.3rem;color:var(--text)}
 .panel p{margin:0;color:var(--text-soft)}
+  .day-acts{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;text-align:start}
+.day-act-card{background:var(--surface-2);border:1.5px solid var(--line);border-radius:14px;padding:14px}
+.day-act-card h3{margin:0 0 4px;font-size:1.05rem;color:var(--text)}
+.day-act-sup{margin:0 0 10px;font-size:.88rem;color:var(--text-soft);font-weight:600}
+.day-act-list{margin:0;padding-inline-start:18px;display:flex;flex-direction:column;gap:6px}
+.day-act-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.92rem}
+.day-act-pts{font-weight:700;color:var(--ocean);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .day-act-pts{color:var(--sky)}}
+:root[data-theme="dark"] .day-act-pts{color:var(--sky)}
+  
 /* ===== Statistics billboard ===== */
 .bb{background:linear-gradient(150deg,var(--navy),var(--royal));color:var(--ice);border:1.5px solid var(--ocean);border-radius:24px;padding:18px;margin-bottom:24px}
 .bb-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -298,9 +308,48 @@ function setDay(id, {updateHash=true}={}){
   render();
 }
 
-/* ===== Views (later prompts plug into renderDayView) ===== */
+const ACT_DAYS=[
+  {id:1,label:'اليوم القرآني (السبت)',acts:['نشاط المقامات']},
+  {id:2,label:'يوم خير جليس (الأحد)',acts:['النشاط الأول: مشهد وحكاية','النشاط الثاني: حياة المعصومين']},
+  {id:3,label:'يوم الحفظ (الاثنين)',acts:['النشاط الأول: المونتاج','النشاط الثاني: ماراثون الحفظ']},
+  {id:4,label:'يوم المهارات (الثلاثاء)',acts:['النشاط الأول: صوت وأثر','النشاط الثاني: البحث القرآني']},
+  {id:5,label:'اليوم المفتوح (الأربعاء)',acts:['النشاط الأول: إدارة المشاريع','النشاط الثاني: كتاب في سطور']}
+];
+  const actKey=(d,i)=>d+'-'+i;
+     const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ 
 function renderDayView(day){
-  return `<section class="panel"><h2>${fullTitle(day)}</h2><p>سيتم عرض أنشطة هذا اليوم هنا في الخطوات القادمة.</p></section>`;
+  const dInfo = ACT_DAYS.find(x => x.id === day.id);
+  const actNames = dInfo ? dInfo.acts : [];
+  const fmtPts = v => Number.isInteger(v) ? v : +v.toFixed(2);
+
+  if(!actNames.length){
+    return `<section class="panel"><h2>${fullTitle(day)}</h2><p>لا توجد أنشطة مسجلة لهذا اليوم.</p></section>`;
+  }
+
+  const cards = actNames.map((actName, idx) => {
+    const def = (State.acts && State.acts[actKey(day.id, idx)]) || {sup:'', crit:[]};
+    const critList = def.crit || [];
+    const eachPt = critList.length ? (10 / critList.length) : 0;
+
+    const critHtml = critList.length
+      ? `<ul class="day-act-list">${critList.map(c =>
+          `<li><span>${esc(c.t || 'معيار بدون اسم')}</span><span class="day-act-pts">${fmtPts(eachPt)} درجة</span></li>`
+        ).join('')}</ul>`
+      : `<p class="g-meta">لم تُضف معايير لهذا النشاط بعد.</p>`;
+
+    return `<article class="day-act-card">
+      <h3>${esc(actName)}</h3>
+      <p class="day-act-sup">مسؤول النشاط: ${def.sup && def.sup.trim() ? esc(def.sup) : 'غير محدد'}</p>
+      ${critHtml}
+    </article>`;
+  }).join('');
+
+  return `<section class="panel">
+    <h2>${fullTitle(day)}</h2>
+    <p>أنشطة اليوم ومعايير التقييم (المجموع لكل نشاط من 10 درجات)</p>
+    <div class="day-acts">${cards}</div>
+  </section>`;
 }
 
 /* ===== Render ===== */
@@ -351,7 +400,6 @@ function demoGroups(){
 /* ===== Statistics logic ===== */
 const num=v=>+v||0, fmtN=n=>n.toLocaleString('en-US');
 const gTotal=g=>num(g.leader.points)+g.students.reduce((a,s)=>a+num(s.points),0)+(g.mgmtG||[]).reduce((a,m)=>a+num(m.pts),0);
-const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function winners(){
   const gs=State.groups, mg=Math.max(0,...gs.map(gTotal)), ml=Math.max(0,...gs.map(g=>num(g.leader.points)));
   return {
@@ -619,8 +667,13 @@ const SUBS={
 const routineOf=(p,day)=>p&&p.evals&&p.evals[day]&&p.evals[day].routine;
 const rScore=r=>r?r.c.filter(Boolean).length:0;
 /* total points of a person = sum of every evaluation category over all days (later prompts add theirs here) */
-const actKey=(d,i)=>d+'-'+i;
-const actScore=(a,d,i)=>{const def=State.acts[actKey(d,i)]; return a&&a.c&&def?def.crit.filter(c=>a.c[c.id]).length:0};
+const actScore = (a, d, i) => {
+  const def = State.acts[actKey(d, i)];
+  if(!a || !a.c || !def || !def.crit || !def.crit.length) return 0;
+  const checkedCount = def.crit.filter(c => a.c[c.id]).length;
+  const rawScore = (checkedCount / def.crit.length) * 10;
+  return Number.isInteger(rawScore) ? rawScore : +rawScore.toFixed(2);
+};
 const scoreOf=p=>Object.entries(p.evals||{}).reduce((t,[d,e])=>t+rScore(e.routine)+(e.mgmt||[]).reduce((u,m)=>u+num(m.pts),0)+lScoreAll(e,d)+Object.entries(e.act||{}).reduce((u,[i,a])=>u+actScore(a,d,i),0),0);
 const evPerson=g=>Eval.main==='leader'?g.leader:g.students.find(s=>s.id===Eval.sid);
 function ensureRt(p,day){
@@ -681,13 +734,6 @@ detailEl.addEventListener('input',e=>{
 /* ===== Activities (members only) ===== */
 State.acts=Store.get('acts',{}); /* {"day-idx":{sup:'',crit:[{id,t}]}} — shared by all groups; checks/notes live on each student */
 const saveActs=()=>Store.set('acts',State.acts);
-const ACT_DAYS=[
-  {id:1,label:'اليوم القرآني (السبت)',acts:['نشاط المقامات']},
-  {id:2,label:'يوم خير جليس (الأحد)',acts:['النشاط الأول: مشهد وحكاية','النشاط الثاني: حياة المعصومين']},
-  {id:3,label:'يوم الحفظ (الاثنين)',acts:['النشاط الأول: المونتاج','النشاط الثاني: ماراثون الحفظ']},
-  {id:4,label:'يوم المهارات (الثلاثاء)',acts:['النشاط الأول: صوت وأثر','النشاط الثاني: البحث القرآني']},
-  {id:5,label:'اليوم المفتوح (الأربعاء)',acts:['النشاط الأول: إدارة المشاريع','النشاط الثاني: كتاب في سطور']}
-];
 const actCur=()=>{const day=Eval.actDay||State.activeDay, D=ACT_DAYS.find(x=>x.id===day)||ACT_DAYS[0]; const idx=Math.min(Eval.actIdx||0,D.acts.length-1); return {day:D.id,D,idx,key:actKey(D.id,idx)}};
 const actDef=key=>State.acts[key]||(State.acts[key]={sup:'',crit:[]});
 function ensureAct(p,day,idx){
