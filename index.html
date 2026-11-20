@@ -955,8 +955,10 @@ const viewEl=document.getElementById('view'), detailEl=document.getElementById('
 const anim=(el,dx=0)=>{el.style.setProperty('--dx',dx+'px');el.classList.remove('view-enter');void el.offsetWidth;el.classList.add('view-enter')};
 const dName=g=>g.name.trim()||'مجموعة بلا اسم';
 const curG=()=>State.groups.find(x=>x.id===Nav.gid);
-const save=()=>Store.set('groups',State.groups);
-
+let save = () => {
+  Store.set('groups', State.groups);
+  if (window.CloudSync) CloudSync.schedulePush();
+};
 function renderGrid(){
   const w=winners();
   return `<section><h2 class="sec-title">مجموعات البرنامج</h2><div class="grid">`+State.groups.map(g=>{
@@ -1186,7 +1188,10 @@ detailEl.addEventListener('input',e=>{
 
 /* ===== Activities (members only) ===== */
 State.acts=Store.get('acts',{}); /* {"day-idx":{sup:'',crit:[{id,t}]}} — shared by all groups; checks/notes live on each student */
-const saveActs=()=>Store.set('acts',State.acts);
+let saveActs = () => {
+  Store.set('acts', State.acts);
+  if (window.CloudSync) CloudSync.schedulePush();
+};
 const actCur=()=>{const day=Eval.actDay||State.activeDay, D=ACT_DAYS.find(x=>x.id===day)||ACT_DAYS[0]; const idx=Math.min(Eval.actIdx||0,D.acts.length-1); return {day:D.id,D,idx,key:actKey(D.id,idx)}};
 const actDef=key=>State.acts[key]||(State.acts[key]={sup:'',crit:[]});
 function ensureAct(p,day,idx){
@@ -1290,7 +1295,10 @@ detailEl.addEventListener('input',e=>{if(e.target.id==='mgmtReason'){Eval.mReaso
 
 /* ===== Leader evaluations: open time challenge + team support ===== */
 State.lacts=Store.get('lacts',{}); /* {"kind-day":{crit:[{id,t}]}}; checks/notes live on the leader: evals[day].lead[kind] */
-const saveLacts=()=>Store.set('lacts',State.lacts);
+let saveLacts = () => {
+  Store.set('lacts', State.lacts);
+  if (window.CloudSync) CloudSync.schedulePush();
+};
 const LEAD_TITLES={challenge:'تحدي الوقت المفتوح',support:'الكفاءة والفاعلية في دعم الفريق'};
 function lScore(l,kind,day){const def=State.lacts[kind+'-'+day]; return l&&l.c&&def?def.crit.filter(c=>l.c[c.id]).length:0}
 function lScoreAll(e,d){return ['challenge','support'].reduce((t,k)=>t+lScore(e.lead&&e.lead[k],k,d),0)}
