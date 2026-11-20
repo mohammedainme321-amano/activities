@@ -271,7 +271,7 @@ textarea.d-in{resize:vertical;min-height:64px}
   <section id="detail" hidden aria-label="تفاصيل المجموعة"></section>
 </main>
 <footer class="foot">
-  <p>تُحفظ البيانات تلقائياً في هذا المتصفح فقط. خذ نسخة احتياطية بين حين وآخر لكي لا تضيع النقاط.</p>
+  <p>تُحفظ البيانات تلقائياً في السحابة (Supabase) وفي هذا المتصفح. يمكنك أخذ نسخة احتياطية إضافية في أي وقت.</p>
   <div class="foot-btns"><button class="btn btn-ghost" id="bkExport" type="button">تصدير نسخة احتياطية</button><button class="btn btn-ghost" id="bkImport" type="button">استيراد نسخة</button></div>
   <textarea class="d-in" id="bkText" hidden aria-label="نص النسخة الاحتياطية"></textarea>
   <div class="foot-btns" id="bkActions" hidden><button class="btn" id="bkCopy" type="button">نسخ النص</button><button class="btn" id="bkApply" type="button">تطبيق الاستيراد</button></div>
@@ -281,7 +281,12 @@ textarea.d-in{resize:vertical;min-height:64px}
 <script>
 const SUPABASE_URL = 'https://copvxmmfifdjdqsotxrc.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_C9SD2WS5j3ch2mcwTRmPBQ_jyGFxKWx';
-const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false
+  }
+});
 </script>
   <script>
 const CloudSync = {
@@ -504,6 +509,7 @@ const CloudSync = {
 
   async pushAll() {
     if (!window.db) return;
+    const logErr = (label, err) => { if (err) console.warn(`Supabase [${label}] error:`, err.message); };
     try {
       // 1. المجموعات
       const groupPayload = (State.groups || []).map((g, idx) => ({
@@ -512,16 +518,20 @@ const CloudSync = {
         display_order: g.displayOrder ?? (idx + 1)
       }));
       if (groupPayload.length) {
-        await db.from('groups').upsert(groupPayload, { onConflict: 'id' });
+        const { error } = await db.from('groups').upsert(groupPayload, { onConflict: 'id' });
+        logErr('groups', error);
       }
 
-      // 2. القادة والطلاب
+      // 2. القادة والطلاب (مع مزامنة المحذوفين)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       const memberPayload = [];
+      const activeIds = new Set();
+
       for (const g of (State.groups || [])) {
         if (g.leader && (g.leader.name || '').trim()) {
           const lid = (g.leader.dbId && uuidRegex.test(g.leader.dbId)) ? g.leader.dbId : crypto.randomUUID();
           g.leader.dbId = lid;
+          activeIds.add(lid);
           memberPayload.push({
             id: lid,
             group_id: g.id,
@@ -537,6 +547,7 @@ const CloudSync = {
             : ((s.dbId && uuidRegex.test(s.dbId)) ? s.dbId : crypto.randomUUID());
           s.id = sid;
           s.dbId = sid;
+          activeIds.add(sid);
           memberPayload.push({
             id: sid,
             group_id: g.id,
@@ -547,23 +558,34 @@ const CloudSync = {
           });
         });
       }
+
+      const { data: existingMembers, error: fetchMemErr } = await db.from('group_members').select('id').eq('is_active', true);
+      logErr('fetch group_members', fetchMemErr);
+      if (Array.isArray(existingMembers)) {
+        const removedIds = existingMembers.map(m => m.id).filter(id => !activeIds.has(id));
+        if (removedIds.length) {
+          const { error: delMemErr } = await db.from('group_members').delete().in('id', removedIds);
+          logErr('delete group_members', delMemErr);
+        }
+      }
+
       if (memberPayload.length) {
-        await db.from('group_members').upsert(memberPayload, { onConflict: 'id' });
+        const { error } = await db.from('group_members').upsert(memberPayload, { onConflict: 'id' });
+        logErr('upsert group_members', error);
       }
 
       // 3. الأنشطة ومعاييرها
-      const { data: dbActs } = await db.from('activities').select('id, program_day_id, activity_index');
+      const { data: dbActs, error: actsErr } = await db.from('activities').select('id, program_day_id, activity_index');
+      logErr('fetch activities', actsErr);
       const actMap = new Map();
       (dbActs || []).forEach(a => actMap.set(`${a.program_day_id}-${Math.max(0, (a.activity_index || 1) - 1)}`, a.id));
 
       const critPayload = [];
       for (const [key, def] of Object.entries(State.acts || {})) {
-        const [dStr, iStr] = key.split('-');
-        const dayId = +dStr;
-        const actIdx = (+iStr || 0) + 1;
         const actId = actMap.get(key);
-        if (actId && (def.sup || '').trim()) {
-          await db.from('activities').update({ supervisor_name: def.sup.trim() }).eq('id', actId);
+        if (actId && def.sup !== undefined) {
+          const { error } = await db.from('activities').update({ supervisor_name: (def.sup || '').trim() }).eq('id', actId);
+          logErr('update activity sup', error);
         }
         if (actId && Array.isArray(def.crit)) {
           def.crit.forEach((c, cIdx) => {
@@ -579,7 +601,8 @@ const CloudSync = {
         }
       }
       if (critPayload.length) {
-        await db.from('activity_criteria').upsert(critPayload, { onConflict: 'id' });
+        const { error } = await db.from('activity_criteria').upsert(critPayload, { onConflict: 'id' });
+        logErr('upsert activity_criteria', error);
       }
 
       // 4. معايير القائد
@@ -601,7 +624,8 @@ const CloudSync = {
         });
       }
       if (leadCritPayload.length) {
-        await db.from('leader_action_criteria').upsert(leadCritPayload, { onConflict: 'id' });
+        const { error } = await db.from('leader_action_criteria').upsert(leadCritPayload, { onConflict: 'id' });
+        logErr('upsert leader_action_criteria', error);
       }
 
       // 5. التقييمات ونقاط الإدارة
@@ -697,17 +721,24 @@ const CloudSync = {
       }
 
       if (routineRows.length) {
-        await db.from('routine_evaluations').upsert(routineRows, { onConflict: 'member_id,program_day_id,criterion_id' });
+        const { error } = await db.from('routine_evaluations').upsert(routineRows, { onConflict: 'member_id,program_day_id,criterion_id' });
+        logErr('routine_evaluations', error);
       }
       if (actEvalRows.length) {
-        await db.from('activity_evaluations').upsert(actEvalRows, { onConflict: 'member_id,activity_criterion_id' });
+        const { error } = await db.from('activity_evaluations').upsert(actEvalRows, { onConflict: 'member_id,activity_criterion_id' });
+        logErr('activity_evaluations', error);
       }
       if (leadEvalRows.length) {
-        await db.from('leader_action_evaluations').upsert(leadEvalRows, { onConflict: 'member_id,action_criterion_id' });
+        const { error } = await db.from('leader_action_evaluations').upsert(leadEvalRows, { onConflict: 'member_id,action_criterion_id' });
+        logErr('leader_action_evaluations', error);
       }
       if (mgmtRows.length) {
-        await db.from('management_points').upsert(mgmtRows, { onConflict: 'id' });
+        const { error } = await db.from('management_points').upsert(mgmtRows, { onConflict: 'id' });
+        logErr('management_points', error);
       }
+      Store.set('groups', State.groups);
+      Store.set('acts', State.acts);
+      Store.set('lacts', State.lacts);
     } catch (err) {
       console.warn('Supabase push error:', err);
     }
@@ -941,7 +972,7 @@ bbEl.addEventListener('click',e=>{
   if(!a)return;
   if(a.dataset.act==='next')goTo(bb.i+1);
   else if(a.dataset.act==='prev')goTo(bb.i-1);
-  else{State.groups=a.dataset.act==='demo'?demoGroups():defaultGroups();Store.set('groups',State.groups);goTo(0)}
+  else{State.groups=a.dataset.act==='demo'?demoGroups():defaultGroups();save();goTo(0)}
 });
 bbEl.addEventListener('mouseenter',()=>bb.paused=true);
 bbEl.addEventListener('mouseleave',()=>bb.paused=false);
@@ -1044,7 +1075,7 @@ detailEl.addEventListener('click',e=>{
   else if(a==='prev') Nav.step(-1);
   else if(a==='next') Nav.step(1);
   else if(a==='add'){const i=document.getElementById('dAdd'),v=i.value.trim(); if(!v){i.focus();return} g.students.push({id:Date.now(),name:v,points:0}); save(); Nav.renderDetail(0,false); document.getElementById('dAdd').focus();}
-  else if(a==='rm'){g.students=g.students.filter(s=>s.id!==+b.dataset.sid); save(); Nav.renderDetail(0,false);}
+  else if(a==='rm'){g.students=g.students.filter(s=>String(s.id)!==String(b.dataset.sid)); save(); Nav.renderDetail(0,false);}
 });
 detailEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='dAdd')detailEl.querySelector('[data-act="add"]').click()});
 detailEl.addEventListener('change',e=>{
@@ -1057,15 +1088,15 @@ detailEl.addEventListener('input',e=>{
   if(t.id==='dNameIn'){g.name=t.value; document.getElementById('dName').textContent=dName(g); const o=detailEl.querySelector('#dSel option[value="'+g.id+'"]'); if(o)o.textContent=dName(g);}
   else if(t.id==='dLeader') g.leader.name=t.value;
   else if(t.id==='dLeaderPts') g.leader.points=Math.max(0,+t.value||0);
-  else if(t.dataset.sid){const s=g.students.find(x=>x.id===+t.dataset.sid); if(!s)return; if(t.dataset.f==='name')s.name=t.value; else s.points=Math.max(0,+t.value||0);}
+  else if(t.dataset.sid){const s=g.students.find(x=>String(x.id)===String(t.dataset.sid)); if(!s)return; if(t.dataset.f==='name')s.name=t.value; else s.points=Math.max(0,+t.value||0);}
   else return;
   save(); metaRefresh(g);
 });
 
 /* ===== Drag & drop (pointer events: mouse + touch) ===== */
 function applyDrop(S,t){
-  const g=curG(), idx=id=>g.students.findIndex(s=>s.id===id);
-  const si=S.isL?-1:idx(+S.id.slice(2));
+  const g=curG(), idx=id=>g.students.findIndex(s=>String(s.id)===String(id));
+  const si=S.isL?-1:idx(S.id.slice(2));
   if(t.kind==='g'){
     const to=State.groups.find(x=>x.id===t.id); if(S.isL||!to||si<0) return false;
     to.students.push(g.students.splice(si,1)[0]); return true;
@@ -1084,7 +1115,7 @@ function applyDrop(S,t){
 detailEl.addEventListener('pointerdown',e=>{
   const h=e.target.closest('[data-drag]'); if(!h||(e.pointerType==='mouse'&&e.button!==0)) return;
   const g=curG(), isL=h.dataset.drag==='l';
-  const src=isL?g.leader:g.students.find(s=>s.id===+h.dataset.drag.slice(2));
+  const src=isL?g.leader:g.students.find(s=>String(s.id)===String(h.dataset.drag.slice(2)));
   if(!src||!src.name.trim()) return;
   e.preventDefault();
   const S={id:h.dataset.drag,isL}, row=h.closest('.d-row');
@@ -1101,7 +1132,7 @@ detailEl.addEventListener('pointerdown',e=>{
     const k=d.dataset.drop;
     if(k==='l'){ if(isL) return; t={kind:'l'}; d.classList.add('drop-hot'); }
     else if(k[0]==='g'){ if(isL) return; t={kind:'g',id:+k.slice(2)}; d.classList.add('drop-hot'); }
-    else { const id=+d.dataset.sid; if(!isL&&id===+S.id.slice(2)) return; const r=d.getBoundingClientRect(), after=ev.clientY>r.top+r.height/2; t={kind:'s',id,after}; d.classList.add(isL?'drop-hot':after?'drop-after':'drop-before'); }
+    else { const id=d.dataset.sid; if(!isL&&String(id)===String(S.id.slice(2))) return; const r=d.getBoundingClientRect(), after=ev.clientY>r.top+r.height/2; t={kind:'s',id,after}; d.classList.add(isL?'drop-hot':after?'drop-after':'drop-before'); }
   };
   const end=ev=>{
     h.removeEventListener('pointermove',move); h.removeEventListener('pointerup',end); h.removeEventListener('pointercancel',end);
@@ -1130,14 +1161,14 @@ const actScore = (a, d, i) => {
   return Number.isInteger(rawScore) ? rawScore : +rawScore.toFixed(2);
 };
 const scoreOf=p=>Object.entries(p.evals||{}).reduce((t,[d,e])=>t+rScore(e.routine)+(e.mgmt||[]).reduce((u,m)=>u+num(m.pts),0)+lScoreAll(e,d)+Object.entries(e.act||{}).reduce((u,[i,a])=>u+actScore(a,d,i),0),0);
-const evPerson=g=>Eval.main==='leader'?g.leader:g.students.find(s=>s.id===Eval.sid);
+const evPerson=g=>Eval.main==='leader'?g.leader:g.students.find(s=>String(s.id)===String(Eval.sid));
 function ensureRt(p,day){
   p.evals=p.evals||{}; const e=p.evals[day]=p.evals[day]||{};
   return e.routine=e.routine||{c:Array(10).fill(false),n:Array(10).fill('')};
 }
 function renderEval(){
   const g=curG(), el=document.getElementById('dEval'); if(!g||!el) return;
-  if(!g.students.some(s=>s.id===Eval.sid)) Eval.sid=g.students.length?g.students[0].id:null;
+  if(!g.students.some(s=>String(s.id)===String(Eval.sid))) Eval.sid=g.students.length?g.students[0].id:null;
   const m=Eval.main, sub=Eval.sub[m], day=State.activeDay, dayObj=DAYS.find(d=>d.id===day)||DAYS[0];
   const p=evPerson(g);
   const who=m==='leader'?(g.leader.name.trim()||'القائد (لم يُحدد الاسم بعد)'):(p?p.name:'');
@@ -1158,12 +1189,12 @@ function renderEval(){
   <p class="ev-day">التقييم لـ ${fullTitle(dayObj)}</p>
   <div class="ev-main"><button type="button" data-ev-main="members" aria-pressed="${m==='members'}">1. تقييم أعضاء الفريق</button><button type="button" data-ev-main="leader" aria-pressed="${m==='leader'}">2. تقييم القائد</button></div>
   <div class="ev-sub">${SUBS[m].map(([k,t])=>`<button type="button" data-ev-sub="${k}" aria-pressed="${k===sub}">${t}</button>`).join('')}</div>
-  ${m==='members'&&g.students.length&&!(sub==='mgmt'&&Eval.mT==='group')?`<label class="d-fld">الطالب المُقيَّم<select class="d-in" id="evStu">${g.students.map(s=>`<option value="${s.id}"${s.id===Eval.sid?' selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`:''}
+  ${m==='members'&&g.students.length&&!(sub==='mgmt'&&Eval.mT==='group')?`<label class="d-fld">الطالب المُقيَّم<select class="d-in" id="evStu">${g.students.map(s=>`<option value="${s.id}"${String(s.id)===String(Eval.sid)?' selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`:''}
   ${body}`;
 }
 function syncPts(g){
   const l=document.getElementById('dLeaderPts'); if(l) l.value=num(g.leader.points);
-  detailEl.querySelectorAll('input[data-f="points"]').forEach(i=>{const s=g.students.find(x=>x.id===+i.dataset.sid); if(s) i.value=num(s.points)});
+  detailEl.querySelectorAll('input[data-f="points"]').forEach(i=>{const s=g.students.find(x=>String(x.id)===String(i.dataset.sid)); if(s) i.value=num(s.points)});
 }
 detailEl.addEventListener('click',e=>{
   const b=e.target.closest('[data-ev-main],[data-ev-sub]'); if(!b) return;
@@ -1172,7 +1203,7 @@ detailEl.addEventListener('click',e=>{
 });
 detailEl.addEventListener('change',e=>{
   const t=e.target, g=curG(); if(!g) return;
-  if(t.id==='evStu'){Eval.sid=+t.value; renderEval(); return}
+  if(t.id==='evStu'){Eval.sid=t.value; renderEval(); return}
   if(t.dataset.ri===undefined) return;
   const p=evPerson(g); if(!p) return;
   const r=ensureRt(p,State.activeDay); r.c[+t.dataset.ri]=t.checked;
