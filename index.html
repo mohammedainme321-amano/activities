@@ -277,8 +277,14 @@ textarea.d-in{resize:vertical;min-height:64px}
   <div class="foot-btns" id="bkActions" hidden><button class="btn" id="bkCopy" type="button">نسخ النص</button><button class="btn" id="bkApply" type="button">تطبيق الاستيراد</button></div>
   <p id="bkMsg" role="status"></p>
 </footer>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
+/* ===== Supabase config: paste your project values here ===== */
+const SUPABASE_URL = 'https://copvxmmfifdjdqsotxrc.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_C9SD2WS5j3ch2mcwTRmPBQ_jyGFxKWx';
+</script>
+  <script>
+  
 /* ===== Data ===== */
 const DAYS = [
   {id:1, ord:'اليوم الأول',  name:'يوم القرآني',   wk:'السبت'},
