@@ -1369,26 +1369,9 @@ detailEl.addEventListener('input',e=>{
   });
 })();
 
-/* ===== Hook local save functions to Supabase ===== */
-const _origSave = typeof save === 'function' ? save : null;
-const _origSaveActs = typeof saveActs === 'function' ? saveActs : null;
-const _origSaveLacts = typeof saveLacts === 'function' ? saveLacts : null;
 
-window.save = function() {
-  if (_origSave) _origSave();
-  Store.set('groups', State.groups);
-  CloudSync.schedulePush();
-};
-window.saveActs = function() {
-  if (_origSaveActs) _origSaveActs();
-  Store.set('acts', State.acts);
-  CloudSync.schedulePush();
-};
-window.saveLacts = function() {
-  if (_origSaveLacts) _origSaveLacts();
-  Store.set('lacts', State.lacts);
-  CloudSync.schedulePush();
-};
+
+
 
 /* ===== Boot ===== */
 applyTheme();
