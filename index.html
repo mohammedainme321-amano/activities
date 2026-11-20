@@ -283,6 +283,452 @@ const SUPABASE_URL = 'https://copvxmmfifdjdqsotxrc.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_C9SD2WS5j3ch2mcwTRmPBQ_jyGFxKWx';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
+  <script>
+const CloudSync = {
+  ready: false,
+  syncTimer: null,
+  channel: null,
+
+  async pullAll() {
+    if (!window.db) return false;
+    try {
+      const [
+        { data: dbGroups, error: e1 },
+        { data: dbMembers, error: e2 },
+        { data: dbActivities, error: e3 },
+        { data: dbCrit, error: e4 },
+        { data: dbRoutine, error: e5 },
+        { data: dbActEval, error: e6 },
+        { data: dbMgmt, error: e7 },
+        { data: dbLeadCrit, error: e8 },
+        { data: dbLeadEval, error: e9 }
+      ] = await Promise.all([
+        db.from('groups').select('*').order('display_order', { ascending: true }),
+        db.from('group_members').select('*').eq('is_active', true).order('display_order', { ascending: true }),
+        db.from('activities').select('*').order('program_day_id', { ascending: true }).order('activity_index', { ascending: true }),
+        db.from('activity_criteria').select('*').order('sort_order', { ascending: true }),
+        db.from('routine_evaluations').select('*'),
+        db.from('activity_evaluations').select('*'),
+        db.from('management_points').select('*').order('awarded_at', { ascending: false }),
+        db.from('leader_action_criteria').select('*').order('sort_order', { ascending: true }),
+        db.from('leader_action_evaluations').select('*')
+      ]);
+
+      const firstErr = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9;
+      if (firstErr) {
+        console.warn('Supabase pull warning:', firstErr.message);
+        return false;
+      }
+
+      if (Array.isArray(dbGroups) && dbGroups.length) {
+        const membersByGroup = new Map();
+        (dbMembers || []).forEach(m => {
+          if (!membersByGroup.has(m.group_id)) membersByGroup.set(m.group_id, []);
+          membersByGroup.get(m.group_id).push(m);
+        });
+
+        const routineByMember = new Map();
+        (dbRoutine || []).forEach(r => {
+          if (!routineByMember.has(r.member_id)) routineByMember.set(r.member_id, []);
+          routineByMember.get(r.member_id).push(r);
+        });
+
+        const actEvalByMember = new Map();
+        (dbActEval || []).forEach(ae => {
+          if (!actEvalByMember.has(ae.member_id)) actEvalByMember.set(ae.member_id, []);
+          actEvalByMember.get(ae.member_id).push(ae);
+        });
+
+        const leadEvalByMember = new Map();
+        (dbLeadEval || []).forEach(le => {
+          if (!leadEvalByMember.has(le.member_id)) leadEvalByMember.set(le.member_id, []);
+          leadEvalByMember.get(le.member_id).push(le);
+        });
+
+        const mgmtByGroup = new Map();
+        const mgmtByMember = new Map();
+        (dbMgmt || []).forEach(mp => {
+          if (mp.target_type === 'group') {
+            if (!mgmtByGroup.has(mp.group_id)) mgmtByGroup.set(mp.group_id, []);
+            mgmtByGroup.get(mp.group_id).push(mp);
+          } else if (mp.member_id) {
+            if (!mgmtByMember.has(mp.member_id)) mgmtByMember.set(mp.member_id, []);
+            mgmtByMember.get(mp.member_id).push(mp);
+          }
+        });
+
+        const buildEvals = (memberId) => {
+          const evals = {};
+          (routineByMember.get(memberId) || []).forEach(r => {
+            const d = r.program_day_id;
+            evals[d] = evals[d] || {};
+            evals[d].routine = evals[d].routine || { c: Array(10).fill(false), n: Array(10).fill('') };
+            const idx = (r.criterion_id || 1) - 1;
+            if (idx >= 0 && idx < 10) {
+              evals[d].routine.c[idx] = !!r.is_checked;
+              evals[d].routine.n[idx] = r.notes || '';
+            }
+          });
+
+          (actEvalByMember.get(memberId) || []).forEach(ae => {
+            const crit = (dbCrit || []).find(c => c.id === ae.activity_criterion_id);
+            const act = crit && (dbActivities || []).find(a => a.id === crit.activity_id);
+            if (!crit || !act) return;
+            const d = act.program_day_id;
+            const aIdx = Math.max(0, (act.activity_index || 1) - 1);
+            evals[d] = evals[d] || {};
+            evals[d].act = evals[d].act || {};
+            evals[d].act[aIdx] = evals[d].act[aIdx] || { c: {}, n: {} };
+            evals[d].act[aIdx].c[crit.id] = !!ae.is_checked;
+            evals[d].act[aIdx].n[crit.id] = ae.notes || '';
+          });
+
+          (leadEvalByMember.get(memberId) || []).forEach(le => {
+            const lcrit = (dbLeadCrit || []).find(c => c.id === le.action_criterion_id);
+            if (!lcrit) return;
+            const d = lcrit.program_day_id;
+            const kind = lcrit.category;
+            evals[d] = evals[d] || {};
+            evals[d].lead = evals[d].lead || {};
+            evals[d].lead[kind] = evals[d].lead[kind] || { c: {}, n: {} };
+            evals[d].lead[kind].c[lcrit.id] = !!le.is_checked;
+            evals[d].lead[kind].n[lcrit.id] = le.notes || '';
+          });
+
+          (mgmtByMember.get(memberId) || []).forEach(mp => {
+            const d = mp.program_day_id || 1;
+            evals[d] = evals[d] || {};
+            evals[d].mgmt = evals[d].mgmt || [];
+            evals[d].mgmt.push({
+              id: mp.id,
+              pts: +mp.points || 0,
+              reason: mp.reason || '',
+              day: d,
+              ts: mp.awarded_at ? new Date(mp.awarded_at).getTime() : Date.now()
+            });
+          });
+
+          return evals;
+        };
+
+        State.groups = dbGroups.map((g, gIdx) => {
+          const gMembers = membersByGroup.get(g.id) || [];
+          const leaderRow = gMembers.find(m => m.role === 'leader');
+          const studentRows = gMembers.filter(m => m.role === 'student');
+
+          const leaderObj = {
+            dbId: leaderRow ? leaderRow.id : null,
+            name: leaderRow ? (leaderRow.full_name || '') : '',
+            points: 0,
+            evals: leaderRow ? buildEvals(leaderRow.id) : {}
+          };
+
+          const studentsObj = studentRows.map((s, sIdx) => ({
+            id: s.id,
+            dbId: s.id,
+            displayOrder: s.display_order ?? sIdx,
+            name: s.full_name || '',
+            points: 0,
+            evals: buildEvals(s.id)
+          }));
+
+          const grpMgmt = (mgmtByGroup.get(g.id) || []).map(mp => ({
+            id: mp.id,
+            pts: +mp.points || 0,
+            reason: mp.reason || '',
+            day: mp.program_day_id || 1,
+            ts: mp.awarded_at ? new Date(mp.awarded_at).getTime() : Date.now()
+          }));
+
+          return {
+            id: g.id,
+            name: g.name || ('المجموعة ' + (gIdx + 1)),
+            displayOrder: g.display_order ?? (gIdx + 1),
+            leader: leaderObj,
+            students: studentsObj,
+            mgmtG: grpMgmt
+          };
+        });
+
+        Store.set('groups', State.groups);
+      }
+
+      if (Array.isArray(dbActivities) && dbActivities.length) {
+        const nextActs = {};
+        dbActivities.forEach(a => {
+          const key = `${a.program_day_id}-${Math.max(0, (a.activity_index || 1) - 1)}`;
+          const crits = (dbCrit || [])
+            .filter(c => c.activity_id === a.id)
+            .map(c => ({ id: c.id, t: c.title || '' }));
+          nextActs[key] = {
+            dbId: a.id,
+            sup: a.supervisor_name || '',
+            crit: crits
+          };
+        });
+        State.acts = nextActs;
+        Store.set('acts', State.acts);
+      }
+
+      if (Array.isArray(dbLeadCrit)) {
+        const nextLacts = {};
+        dbLeadCrit.forEach(c => {
+          const key = `${c.category}-${c.program_day_id}`;
+          if (!nextLacts[key]) nextLacts[key] = { crit: [] };
+          nextLacts[key].crit.push({ id: c.id, t: c.title || '' });
+        });
+        State.lacts = nextLacts;
+        Store.set('lacts', State.lacts);
+      }
+
+      if (typeof scoreOf === 'function') {
+        (State.groups || []).forEach(g => {
+          if (g.leader) g.leader.points = scoreOf(g.leader);
+          (g.students || []).forEach(s => { s.points = scoreOf(s); });
+        });
+        Store.set('groups', State.groups);
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('Supabase pull error:', err);
+      return false;
+    }
+  },
+
+  schedulePush() {
+    if (!window.db) return;
+    clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => this.pushAll(), 350);
+  },
+
+  async pushAll() {
+    if (!window.db) return;
+    try {
+      // 1. المجموعات
+      const groupPayload = (State.groups || []).map((g, idx) => ({
+        id: g.id,
+        name: (g.name || ('المجموعة ' + (idx + 1))).trim(),
+        display_order: g.displayOrder ?? (idx + 1)
+      }));
+      if (groupPayload.length) {
+        await db.from('groups').upsert(groupPayload, { onConflict: 'id' });
+      }
+
+      // 2. القادة والطلاب
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const memberPayload = [];
+      for (const g of (State.groups || [])) {
+        if (g.leader && (g.leader.name || '').trim()) {
+          const lid = (g.leader.dbId && uuidRegex.test(g.leader.dbId)) ? g.leader.dbId : crypto.randomUUID();
+          g.leader.dbId = lid;
+          memberPayload.push({
+            id: lid,
+            group_id: g.id,
+            role: 'leader',
+            full_name: g.leader.name.trim(),
+            display_order: 0,
+            is_active: true
+          });
+        }
+        (g.students || []).forEach((s, sIdx) => {
+          const sid = (typeof s.id === 'string' && uuidRegex.test(s.id))
+            ? s.id
+            : ((s.dbId && uuidRegex.test(s.dbId)) ? s.dbId : crypto.randomUUID());
+          s.id = sid;
+          s.dbId = sid;
+          memberPayload.push({
+            id: sid,
+            group_id: g.id,
+            role: 'student',
+            full_name: (s.name || '').trim() || 'طالب',
+            display_order: sIdx + 1,
+            is_active: true
+          });
+        });
+      }
+      if (memberPayload.length) {
+        await db.from('group_members').upsert(memberPayload, { onConflict: 'id' });
+      }
+
+      // 3. الأنشطة ومعاييرها
+      const { data: dbActs } = await db.from('activities').select('id, program_day_id, activity_index');
+      const actMap = new Map();
+      (dbActs || []).forEach(a => actMap.set(`${a.program_day_id}-${Math.max(0, (a.activity_index || 1) - 1)}`, a.id));
+
+      const critPayload = [];
+      for (const [key, def] of Object.entries(State.acts || {})) {
+        const [dStr, iStr] = key.split('-');
+        const dayId = +dStr;
+        const actIdx = (+iStr || 0) + 1;
+        const actId = actMap.get(key);
+        if (actId && (def.sup || '').trim()) {
+          await db.from('activities').update({ supervisor_name: def.sup.trim() }).eq('id', actId);
+        }
+        if (actId && Array.isArray(def.crit)) {
+          def.crit.forEach((c, cIdx) => {
+            const cid = uuidRegex.test(c.id) ? c.id : crypto.randomUUID();
+            c.id = cid;
+            critPayload.push({
+              id: cid,
+              activity_id: actId,
+              title: (c.t || '').trim() || 'معيار',
+              sort_order: cIdx + 1
+            });
+          });
+        }
+      }
+      if (critPayload.length) {
+        await db.from('activity_criteria').upsert(critPayload, { onConflict: 'id' });
+      }
+
+      // 4. معايير القائد
+      const leadCritPayload = [];
+      for (const [key, def] of Object.entries(State.lacts || {})) {
+        const [kind, dStr] = key.split('-');
+        const dayId = +dStr;
+        if (!['challenge', 'support'].includes(kind) || !dayId) continue;
+        (def.crit || []).forEach((c, cIdx) => {
+          const cid = uuidRegex.test(c.id) ? c.id : crypto.randomUUID();
+          c.id = cid;
+          leadCritPayload.push({
+            id: cid,
+            program_day_id: dayId,
+            category: kind,
+            title: (c.t || '').trim() || 'فعل',
+            sort_order: cIdx + 1
+          });
+        });
+      }
+      if (leadCritPayload.length) {
+        await db.from('leader_action_criteria').upsert(leadCritPayload, { onConflict: 'id' });
+      }
+
+      // 5. التقييمات ونقاط الإدارة
+      const routineRows = [];
+      const actEvalRows = [];
+      const leadEvalRows = [];
+      const mgmtRows = [];
+
+      const pushPersonEvals = (person, groupId, isLeader) => {
+        if (!person || !person.dbId || !person.evals) return;
+        for (const [dStr, ev] of Object.entries(person.evals)) {
+          const dayId = +dStr;
+          if (!dayId || !ev) continue;
+
+          if (ev.routine && Array.isArray(ev.routine.c)) {
+            for (let i = 0; i < 10; i++) {
+              routineRows.push({
+                member_id: person.dbId,
+                program_day_id: dayId,
+                criterion_id: i + 1,
+                is_checked: !!ev.routine.c[i],
+                notes: (ev.routine.n && ev.routine.n[i]) ? String(ev.routine.n[i]) : ''
+              });
+            }
+          }
+
+          if (!isLeader && ev.act) {
+            for (const [iStr, aObj] of Object.entries(ev.act)) {
+              const def = (State.acts || {})[`${dayId}-${iStr}`];
+              if (!def || !Array.isArray(def.crit) || !aObj || !aObj.c) continue;
+              def.crit.forEach(c => {
+                if (!uuidRegex.test(c.id)) return;
+                actEvalRows.push({
+                  member_id: person.dbId,
+                  activity_criterion_id: c.id,
+                  is_checked: !!aObj.c[c.id],
+                  notes: (aObj.n && aObj.n[c.id]) ? String(aObj.n[c.id]) : ''
+                });
+              });
+            }
+          }
+
+          if (isLeader && ev.lead) {
+            for (const [kind, lObj] of Object.entries(ev.lead)) {
+              const def = (State.lacts || {})[`${kind}-${dayId}`];
+              if (!def || !Array.isArray(def.crit) || !lObj || !lObj.c) continue;
+              def.crit.forEach(c => {
+                if (!uuidRegex.test(c.id)) return;
+                leadEvalRows.push({
+                  member_id: person.dbId,
+                  action_criterion_id: c.id,
+                  is_checked: !!lObj.c[c.id],
+                  notes: (lObj.n && lObj.n[c.id]) ? String(lObj.n[c.id]) : ''
+                });
+              });
+            }
+          }
+
+          if (!isLeader && Array.isArray(ev.mgmt)) {
+            ev.mgmt.forEach(m => {
+              const mid = uuidRegex.test(m.id) ? m.id : crypto.randomUUID();
+              m.id = mid;
+              mgmtRows.push({
+                id: mid,
+                group_id: groupId,
+                program_day_id: m.day || dayId,
+                target_type: 'student',
+                member_id: person.dbId,
+                points: Math.max(0, Math.min(10, +m.pts || 0)),
+                reason: (m.reason || '').trim() || 'نقاط إدارة'
+              });
+            });
+          }
+        }
+      };
+
+      for (const g of (State.groups || [])) {
+        pushPersonEvals(g.leader, g.id, true);
+        (g.students || []).forEach(s => pushPersonEvals(s, g.id, false));
+        (g.mgmtG || []).forEach(m => {
+          const mid = uuidRegex.test(m.id) ? m.id : crypto.randomUUID();
+          m.id = mid;
+          mgmtRows.push({
+            id: mid,
+            group_id: g.id,
+            program_day_id: m.day || 1,
+            target_type: 'group',
+            member_id: null,
+            points: Math.max(0, Math.min(10, +m.pts || 0)),
+            reason: (m.reason || '').trim() || 'نقاط إدارة'
+          });
+        });
+      }
+
+      if (routineRows.length) {
+        await db.from('routine_evaluations').upsert(routineRows, { onConflict: 'member_id,program_day_id,criterion_id' });
+      }
+      if (actEvalRows.length) {
+        await db.from('activity_evaluations').upsert(actEvalRows, { onConflict: 'member_id,activity_criterion_id' });
+      }
+      if (leadEvalRows.length) {
+        await db.from('leader_action_evaluations').upsert(leadEvalRows, { onConflict: 'member_id,action_criterion_id' });
+      }
+      if (mgmtRows.length) {
+        await db.from('management_points').upsert(mgmtRows, { onConflict: 'id' });
+      }
+    } catch (err) {
+      console.warn('Supabase push error:', err);
+    }
+  },
+
+  subscribeRealtime() {
+    if (!window.db || this.channel) return;
+    this.channel = db
+      .channel('madinah-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public' }, async () => {
+        const ok = await this.pullAll();
+        if (ok) {
+          if (typeof render === 'function') render();
+          if (typeof renderBillboard === 'function') renderBillboard();
+          if (typeof Nav !== 'undefined' && Nav.view === 'group') Nav.renderDetail(0, false);
+        }
+      })
+      .subscribe();
+  }
+};
+</script>
   
   
   <script>
@@ -915,10 +1361,39 @@ detailEl.addEventListener('input',e=>{
   });
 })();
 
+/* ===== Hook local save functions to Supabase ===== */
+const _origSave = typeof save === 'function' ? save : null;
+const _origSaveActs = typeof saveActs === 'function' ? saveActs : null;
+const _origSaveLacts = typeof saveLacts === 'function' ? saveLacts : null;
+
+window.save = function() {
+  if (_origSave) _origSave();
+  Store.set('groups', State.groups);
+  CloudSync.schedulePush();
+};
+window.saveActs = function() {
+  if (_origSaveActs) _origSaveActs();
+  Store.set('acts', State.acts);
+  CloudSync.schedulePush();
+};
+window.saveLacts = function() {
+  if (_origSaveLacts) _origSaveLacts();
+  Store.set('lacts', State.lacts);
+  CloudSync.schedulePush();
+};
+
 /* ===== Boot ===== */
 applyTheme();
 setDay(dayFromHash() || State.activeDay, {updateHash:!!dayFromHash()});
 Nav.route();
+
+(async () => {
+  await CloudSync.pullAll();
+  render();
+  renderBillboard();
+  if (Nav.view === 'group') Nav.renderDetail(0, false);
+  CloudSync.subscribeRealtime();
+})();
 </script>
 </body>
 </html>
